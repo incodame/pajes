@@ -9,8 +9,15 @@ import spoon.reflect.declaration.CtType;
 import spoon.reflect.reference.CtTypeReference;
 import spoon.reflect.visitor.filter.TypeFilter;
 
+import java.io.BufferedReader;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 public class JavaPatchToRdf {
 
@@ -33,11 +40,158 @@ public class JavaPatchToRdf {
         return signature.length() == 0 ? "default" : signature.toString();
     }
 
+    private static String normalizeTypeName(String typeName) {
+        if (typeName == null) {
+            return "";
+        }
+        String trimmed = typeName.trim();
+        int lastDot = trimmed.lastIndexOf('.');
+        return lastDot >= 0 ? trimmed.substring(lastDot + 1) : trimmed;
+    }
+
+    private static String normalizeMethodSignature(String declaration) {
+        if (declaration == null) {
+            return "";
+        }
+
+        String trimmed = declaration.trim();
+        int openParen = trimmed.indexOf('(');
+        int closeParen = trimmed.lastIndexOf(')');
+        if (openParen < 0 || closeParen < 0 || closeParen < openParen) {
+            return "";
+        }
+
+        String prefix = trimmed.substring(0, openParen).trim();
+        String paramsText = trimmed.substring(openParen + 1, closeParen).trim();
+        String methodName = prefix.substring(prefix.lastIndexOf(' ') + 1).trim();
+
+        List<String> paramTypes = new ArrayList<>();
+        if (!paramsText.isEmpty()) {
+            String[] params = paramsText.split(",");
+            for (String param : params) {
+                String cleaned = param.trim();
+                if (cleaned.isEmpty()) {
+                    continue;
+                }
+                int lastSpace = cleaned.lastIndexOf(' ');
+                String type = lastSpace > -1 ? cleaned.substring(0, lastSpace).trim() : cleaned;
+                paramTypes.add(normalizeTypeName(type));
+            }
+        }
+
+        return methodName + "(" + String.join(",", paramTypes) + ")";
+    }
+
+    private static List<String> extractParameterTypesFromMethodSignature(String signature) {
+        if (signature == null) {
+            return List.of();
+        }
+
+        String trimmed = signature.trim();
+        int openParen = trimmed.indexOf('(');
+        int closeParen = trimmed.lastIndexOf(')');
+        if (openParen < 0 || closeParen < 0 || closeParen < openParen) {
+            return List.of();
+        }
+
+        String paramsText = trimmed.substring(openParen + 1, closeParen).trim();
+        if (paramsText.isEmpty()) {
+            return List.of();
+        }
+
+        List<String> paramTypes = new ArrayList<>();
+        for (String param : paramsText.split(",")) {
+            String cleaned = param.trim();
+            if (cleaned.isEmpty()) {
+                continue;
+            }
+            int lastSpace = cleaned.lastIndexOf(' ');
+            String type = lastSpace > -1 ? cleaned.substring(0, lastSpace).trim() : cleaned;
+            paramTypes.add(type);
+        }
+        return paramTypes;
+    }
+
+    private static boolean isPatchedMethod(CtMethod<?> method, Set<String> patchedMethodSignatures) {
+        String methodName = method.getSimpleName();
+        String signature = method.getSimpleName() + "(" + method.getParameters().stream()
+                .map(p -> normalizeTypeName(p.getType().getQualifiedName()))
+                .reduce((a, b) -> a + "," + b)
+                .orElse("") + ")";
+
+        return patchedMethodSignatures.contains(methodName)
+                || patchedMethodSignatures.contains(signature)
+                || patchedMethodSignatures.contains(normalizeMethodSignature(method.toString()));
+    }
+
+    private static Set<String> readPatchedMethodSignatures(String patchPath) throws IOException {
+        Set<String> patchedMethods = new HashSet<>();
+        if (patchPath == null || patchPath.trim().isEmpty()) {
+            return patchedMethods;
+        }
+
+        StringBuilder currentMethod = null;
+
+        try (BufferedReader reader = Files.newBufferedReader(Paths.get(patchPath))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                String trimmed = line.trim();
+
+                if (trimmed.startsWith("-") || trimmed.startsWith("+")) {
+                    String content = trimmed.substring(1).trim();
+                    if (content.isEmpty()) {
+                        continue;
+                    }
+
+                    if (currentMethod == null && content.contains("(") &&
+                            (content.contains("public") || content.contains("protected") || content.contains("private"))) {
+                        currentMethod = new StringBuilder(content);
+                    } else if (currentMethod != null) {
+                        currentMethod.append(" ").append(content);
+                    }
+
+                    if (currentMethod != null && currentMethod.indexOf("(") >= 0 && currentMethod.indexOf(")") >= 0) {
+                        String normalized = normalizeMethodSignature(currentMethod.toString());
+                        if (!normalized.isEmpty()) {
+                            patchedMethods.add(normalized);
+                            String methodName = normalized.substring(0, normalized.indexOf('('));
+                            patchedMethods.add(methodName);
+                        }
+                        currentMethod = null;
+                    }
+                    continue;
+                }
+
+                if (currentMethod != null && (trimmed.startsWith("{") || trimmed.startsWith("}"))) {
+                    String normalized = normalizeMethodSignature(currentMethod.toString());
+                    if (!normalized.isEmpty()) {
+                        patchedMethods.add(normalized);
+                        String methodName = normalized.substring(0, normalized.indexOf('('));
+                        patchedMethods.add(methodName);
+                    }
+                    currentMethod = null;
+                }
+            }
+        }
+        return patchedMethods;
+    }
+
     public static Model buildModelForFile(String sourcePath) {
+        return buildModelForFile(sourcePath, null);
+    }
+
+    public static Model buildModelForFile(String sourcePath, String patchPath) {
         Model model = ModelFactory.createDefaultModel();
         model.setNsPrefix("woc", WOC_NS);
         model.setNsPrefix("icodm", EX_NS);
         model.setNsPrefix("rdf", RDF.getURI());
+
+        Set<String> patchedMethodSignatures = new HashSet<>();
+        try {
+            patchedMethodSignatures.addAll(readPatchedMethodSignatures(patchPath));
+        } catch (IOException e) {
+            throw new IllegalArgumentException("Unable to read patch file: " + patchPath, e);
+        }
 
         Resource wocMethodClass = model.createResource(WOC_NS + "Method");
         Resource wocConstructorClass = model.createResource(WOC_NS + "Constructor");
@@ -69,13 +223,24 @@ public class JavaPatchToRdf {
                     String visibility = method.isPublic() ? "public" : "protected";
                     String patchedMethodURI = EX_NS + fqcn + "_" + method.getSimpleName() + "_patched";
                     String stableMethodURI = EX_NS + fqcn + "_" + method.getSimpleName() + "_stable";
+                    String methodSignature = method.getSignature();
 
                     Resource patchedMethodRes = model.createResource(patchedMethodURI)
                             .addProperty(RDF.type, wocMethodClass)
                             .addProperty(wocName, method.getSimpleName())
                             .addProperty(wocHasModifier, visibility)
-                            .addProperty(wocHasReturnType, method.getType().getQualifiedName())
-                            .addProperty(exIsPatchOfMethod, model.createResource(stableMethodURI));
+                            .addProperty(wocHasReturnType, method.getType().getQualifiedName());
+
+                    if (isPatchedMethod(method, patchedMethodSignatures)) {
+                        patchedMethodRes.addProperty(exIsPatchOfMethod, model.createResource(stableMethodURI));
+                    }
+
+                    List<String> patchSignatureParamTypes = patchedMethodSignatures.stream()
+                            .filter(signature -> signature.startsWith(method.getSimpleName() + "("))
+                            .map(JavaPatchToRdf::extractParameterTypesFromMethodSignature)
+                            .filter(types -> !types.isEmpty() && types.size() > method.getParameters().size())
+                            .findFirst()
+                            .orElse(List.of());
 
                     int index = 0;
                     for (CtParameter<?> param : method.getParameters()) {
@@ -87,6 +252,17 @@ public class JavaPatchToRdf {
 
                         patchedMethodRes.addProperty(wocHasParameter, paramRes);
                         index++;
+                    }
+
+                    for (int patchIndex = method.getParameters().size(); patchIndex < patchSignatureParamTypes.size(); patchIndex++) {
+                        String paramType = patchSignatureParamTypes.get(patchIndex);
+                        String paramURI = patchedMethodURI + "_param_" + patchIndex;
+                        Resource paramRes = model.createResource(paramURI)
+                                .addProperty(RDF.type, wocParameterClass)
+                                .addProperty(wocParamIndex, model.createTypedLiteral(patchIndex))
+                                .addProperty(wocParamType, paramType);
+
+                        patchedMethodRes.addProperty(wocHasParameter, paramRes);
                     }
 
                     for (CtTypeReference<? extends Throwable> excRef : method.getThrownTypes()) {
@@ -129,7 +305,10 @@ public class JavaPatchToRdf {
     }
 
     public static void main(String[] args) {
-        Model model = buildModelForFile("/Users/tanguyro/Incodame/paragraph/ParagraphUI/src/main/java/org/incodame/paragraph/sample/webapp/demo/Parameter.java");
+        String sourcePath = args.length > 0 ? args[0] : "/Users/tanguyro/Incodame/paragraph/ParagraphUI/src/main/java/org/incodame/paragraph/sample/webapp/demo/Parameter.java";
+        String patchPath = args.length > 1 ? args[1] : null;
+
+        Model model = buildModelForFile(sourcePath, patchPath);
 
         try (FileOutputStream out = new FileOutputStream("refmodule-patch.ttl")) {
             model.write(out, "TURTLE");

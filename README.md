@@ -10,6 +10,14 @@ The goal of this tool is to transform java program information to either:
 This allows to mix paragraph queries about software configuration with
 information about dependent java software components.
 
+## Example:
+
+build the project using: mvn clean package
+
+java -jar target/pajes-0.0.1-SNAPSHOT.jar "/Users/tanguyro/Incodame/paragraph/ParagraphUI/src/main/java/org/incodame/paragraph/sample/webapp/demo/Parameter.java" "/Users/tanguyro/Incodame/paragraph/set-doc-since-information.patch"
+
+will generate RDF facts into file "refmodule-patch.ttl"
+
 ## Dependencies
 
 - https://github.com/INRIA/spoon for parsing java sources

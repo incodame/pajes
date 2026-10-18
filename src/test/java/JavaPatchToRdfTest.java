@@ -56,4 +56,57 @@ class JavaPatchToRdfTest {
         assertTrue(methodResource.hasProperty(RDF.type, methodType));
         assertTrue(methodResource.getURI().startsWith("https://github.com/Incodam/"));
     }
+
+    @Test
+    void onlyAddsIsPatchOfMethodForPatchedMethods() throws Exception {
+        String sourcePath = "/Users/tanguyro/Incodame/paragraph/ParagraphUI/src/main/java/org/incodame/paragraph/sample/webapp/demo/Parameter.java";
+        String patchPath = "/Users/tanguyro/Incodame/paragraph/set-doc-since-information.patch";
+
+        Model model = JavaPatchToRdf.buildModelForFile(sourcePath, patchPath);
+
+        Resource patchedMethod = model.listResourcesWithProperty(RDF.type, model.getResource("http://webofcode.orgMethod")).toList().stream()
+                .filter(r -> r.getURI().contains("Parameter_setDoc_patched"))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("Missing patched method resource"));
+        assertTrue(patchedMethod.hasProperty(model.createProperty("https://github.com/Incodam/isPatchOfMethod")));
+
+        Resource unpatchedMethod = model.listResourcesWithProperty(RDF.type, model.getResource("http://webofcode.orgMethod")).toList().stream()
+                .filter(r -> r.getURI().contains("Parameter_setName_patched"))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("Missing unpatched method resource"));
+        assertTrue(!unpatchedMethod.hasProperty(model.createProperty("https://github.com/Incodam/isPatchOfMethod")));
+    }
+
+    @Test
+    void generatesAllParametersForMultilineMethodSignature() throws Exception {
+        Path sourceFile = Files.createTempFile("MultilineMethodExample", ".java");
+        Files.write(sourceFile, (
+                "package demo;\n" +
+                "\n" +
+                "public class Example {\n" +
+                "    public void setDoc(String doc) {\n" +
+                "    }\n" +
+                "}\n"
+        ).getBytes());
+
+        Path patchFile = Files.createTempFile("MultilineMethodPatch", ".patch");
+        Files.write(patchFile, (
+                "diff --git a/Example.java b/Example.java\n" +
+                "--- a/Example.java\n" +
+                "+++ b/Example.java\n" +
+                "@@\n" +
+                "-    public void setDoc(String doc) {\n" +
+                "+    public void setDoc(String doc,\n" +
+                "+                        String sinceInformation) {\n"
+        ).getBytes());
+
+        Model model = JavaPatchToRdf.buildModelForFile(sourceFile.toString(), patchFile.toString());
+
+        Resource patchedMethod = model.listResourcesWithProperty(RDF.type, model.getResource("http://webofcode.orgMethod")).toList().stream()
+                .filter(r -> r.getURI().contains("Example_setDoc_patched"))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("Missing multiline method resource"));
+
+        assertTrue(patchedMethod.listProperties(model.createProperty("http://webofcode.orghasParameter")).toList().size() == 2);
+    }
 }
