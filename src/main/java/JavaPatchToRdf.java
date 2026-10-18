@@ -12,8 +12,11 @@ import spoon.reflect.visitor.filter.TypeFilter;
 import java.io.BufferedReader;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -29,17 +32,64 @@ public class JavaPatchToRdf {
     // The trailing slash keeps Turtle serializer output compatible with the icodm: prefix.
     private static final String EX_NS = "https://github.com/Incodam/";
 
-    private static String buildConstructorSignature(CtConstructor<?> constructor) {
-        StringBuilder signature = new StringBuilder();
-        boolean first = true;
-        for (CtParameter<?> parameter : constructor.getParameters()) {
-            if (!first) {
-                signature.append("_");
+    private static String buildMemberURI(String declaringType, String memberName, List<String> parameterTypes,
+            String state) {
+        String canonicalSignature = declaringType + "#" + memberName + "(" + String.join(",", parameterTypes) + ")";
+        try {
+            byte[] digest = MessageDigest.getInstance("SHA-256").digest(canonicalSignature.getBytes(StandardCharsets.UTF_8));
+            StringBuilder hash = new StringBuilder();
+            for (int index = 0; index < 6; index++) {
+                hash.append(String.format("%02x", digest[index]));
             }
-            signature.append(parameter.getType().getQualifiedName().replace('.', '_'));
-            first = false;
+            return EX_NS + declaringType + "_" + memberName + "_" + hash + "_" + state;
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 is unavailable", e);
         }
-        return signature.length() == 0 ? "default" : signature.toString();
+    }
+
+    private static List<String> getParameterTypeNames(CtMethod<?> method) {
+        List<String> parameterTypes = new ArrayList<>();
+        for (CtParameter<?> parameter : method.getParameters()) {
+            parameterTypes.add(parameter.getType().getQualifiedName());
+        }
+        return parameterTypes;
+    }
+
+    private static List<String> getParameterTypeNames(CtConstructor<?> constructor) {
+        List<String> parameterTypes = new ArrayList<>();
+        for (CtParameter<?> parameter : constructor.getParameters()) {
+            parameterTypes.add(parameter.getType().getQualifiedName());
+        }
+        return parameterTypes;
+    }
+
+    private static Resource createParameterList(Model model, List<String> parameterTypes,
+            Resource parameterClass, Property parameterIndex, Property parameterType) {
+        List<RDFNode> parameterNodes = new ArrayList<>();
+        for (int index = 0; index < parameterTypes.size(); index++) {
+            Resource parameter = model.createResource()
+                    .addProperty(RDF.type, parameterClass)
+                    .addProperty(parameterIndex, model.createTypedLiteral(index))
+                    .addProperty(parameterType, parameterTypes.get(index));
+            parameterNodes.add(parameter);
+        }
+        return model.createList(parameterNodes.iterator());
+    }
+
+    private static List<String> resolvePatchParameterTypes(CtType<?> declaringType, List<String> patchTypes) {
+        List<String> resolvedTypes = new ArrayList<>();
+        for (String patchType : patchTypes) {
+            String simpleTypeName = normalizeTypeName(patchType);
+            String resolvedType = patchType;
+            for (CtTypeReference<?> typeReference : declaringType.getElements(new TypeFilter<>(CtTypeReference.class))) {
+                if (typeReference.getSimpleName().equals(simpleTypeName)) {
+                    resolvedType = typeReference.getQualifiedName();
+                    break;
+                }
+            }
+            resolvedTypes.add(resolvedType);
+        }
+        return resolvedTypes;
     }
 
     private static String normalizeTypeName(String typeName) {
@@ -114,96 +164,154 @@ public class JavaPatchToRdf {
         return paramTypes;
     }
 
-    private static String resolveParameterTypeFromSpoon(CtType<?> declaringType, CtMethod<?> method,
-            String patchedTypeName) {
-        String simplePatchedTypeName = normalizeTypeName(patchedTypeName);
-
-        for (CtParameter<?> parameter : method.getParameters()) {
-            CtTypeReference<?> parameterType = parameter.getType();
-            if (parameterType.getSimpleName().equals(simplePatchedTypeName)) {
-                return parameterType.getQualifiedName();
-            }
-        }
-
-        for (CtTypeReference<?> typeReference : declaringType.getElements(new TypeFilter<>(CtTypeReference.class))) {
-            if (typeReference.getSimpleName().equals(simplePatchedTypeName)) {
-                return typeReference.getQualifiedName();
-            }
-        }
-
-        return patchedTypeName;
-    }
-
-    private static boolean isPatchedMethod(CtMethod<?> method, Set<String> patchedMethodSignatures) {
-        String methodName = method.getSimpleName();
-        String signature = method.getSimpleName() + "(" + method.getParameters().stream()
+        private static boolean isPatchedMethod(CtMethod<?> method, Set<String> addedSignatures,
+            Set<String> removedSignatures) {
+        List<String> parameterTypes = method.getParameters().stream()
                 .map(p -> normalizeTypeName(p.getType().getQualifiedName()))
-                .reduce((a, b) -> a + "," + b)
-                .orElse("") + ")";
-
-        return patchedMethodSignatures.contains(methodName)
-                || patchedMethodSignatures.contains(signature)
-                || patchedMethodSignatures.contains(normalizeMethodSignature(method.toString()));
+                .collect(java.util.stream.Collectors.toList());
+        return hasExactPatchSignature(addedSignatures, method.getSimpleName(), parameterTypes)
+            || hasExactPatchSignature(removedSignatures, method.getSimpleName(), parameterTypes);
     }
 
-    private static boolean isPatchedConstructor(CtConstructor<?> constructor, Set<String> patchedMethodSignatures) {
-        String signature = constructor.getDeclaringType().getSimpleName() + "(" + constructor.getParameters().stream()
+        private static boolean isPatchedConstructor(CtConstructor<?> constructor, Set<String> addedSignatures,
+            Set<String> removedSignatures) {
+        List<String> parameterTypes = constructor.getParameters().stream()
                 .map(parameter -> normalizeTypeName(parameter.getType().getQualifiedName()))
-                .reduce((first, second) -> first + "," + second)
-                .orElse("") + ")";
-        return patchedMethodSignatures.contains(signature);
+                .collect(java.util.stream.Collectors.toList());
+        String constructorName = constructor.getDeclaringType().getSimpleName();
+        return hasExactPatchSignature(addedSignatures, constructorName, parameterTypes)
+            || hasExactPatchSignature(removedSignatures, constructorName, parameterTypes);
     }
 
-    private static Set<String> readPatchedMethodSignatures(String patchPath) throws IOException {
-        Set<String> patchedMethods = new HashSet<>();
+        private static List<String> findExactPatchParameterTypes(Set<String> signatures, String memberName,
+            List<String> existingParameterTypes) {
+        String prefix = memberName + "(";
+        for (String signature : signatures) {
+            if (!signature.startsWith(prefix) || !signature.endsWith(")")) {
+                continue;
+            }
+            List<String> candidateTypes = extractParameterTypesFromMethodSignature(signature);
+            if (candidateTypes.size() != existingParameterTypes.size()) {
+                continue;
+            }
+            boolean matches = true;
+            for (int index = 0; index < existingParameterTypes.size(); index++) {
+                if (!normalizeTypeName(candidateTypes.get(index)).equals(existingParameterTypes.get(index))) {
+                    matches = false;
+                    break;
+                }
+            }
+            if (matches) {
+                return candidateTypes;
+            }
+        }
+        return null;
+    }
+
+    private static List<String> findExtendedPatchParameterTypes(Set<String> signatures, String memberName,
+            List<String> existingParameterTypes) {
+        String prefix = memberName + "(";
+        for (String signature : signatures) {
+            if (!signature.startsWith(prefix) || !signature.endsWith(")")) {
+                continue;
+            }
+            List<String> candidateTypes = extractParameterTypesFromMethodSignature(signature);
+            if (candidateTypes.size() <= existingParameterTypes.size()) {
+                continue;
+            }
+            boolean existingTypesMatch = true;
+            for (int index = 0; index < existingParameterTypes.size(); index++) {
+                if (!normalizeTypeName(candidateTypes.get(index)).equals(existingParameterTypes.get(index))) {
+                    existingTypesMatch = false;
+                    break;
+                }
+            }
+            if (existingTypesMatch) {
+                return candidateTypes;
+            }
+        }
+        return null;
+    }
+
+    private static List<String> findClosestPatchParameterTypes(Set<String> signatures, String memberName,
+            List<String> currentParameterTypes) {
+        String prefix = memberName + "(";
+        List<String> bestMatch = null;
+        int bestSharedPrefixLength = -1;
+        for (String signature : signatures) {
+            if (!signature.startsWith(prefix) || !signature.endsWith(")")) {
+                continue;
+            }
+            List<String> candidateTypes = extractParameterTypesFromMethodSignature(signature);
+            int sharedPrefixLength = 0;
+            while (sharedPrefixLength < candidateTypes.size() && sharedPrefixLength < currentParameterTypes.size()
+                    && normalizeTypeName(candidateTypes.get(sharedPrefixLength))
+                            .equals(normalizeTypeName(currentParameterTypes.get(sharedPrefixLength)))) {
+                sharedPrefixLength++;
+            }
+            if (sharedPrefixLength > bestSharedPrefixLength) {
+                bestSharedPrefixLength = sharedPrefixLength;
+                bestMatch = candidateTypes;
+            }
+        }
+        return bestMatch;
+    }
+
+    private static boolean hasExactPatchSignature(Set<String> signatures, String memberName,
+            List<String> parameterTypes) {
+        return findExactPatchParameterTypes(signatures, memberName, parameterTypes) != null;
+    }
+
+    private static Set<String> readPatchSignatures(String patchPath, char marker) throws IOException {
+        Set<String> signatures = new HashSet<>();
         if (patchPath == null || patchPath.trim().isEmpty()) {
-            return patchedMethods;
+            return signatures;
         }
 
-        StringBuilder currentMethod = null;
+        StringBuilder currentDeclaration = null;
 
         try (BufferedReader reader = Files.newBufferedReader(Paths.get(patchPath))) {
             String line;
             while ((line = reader.readLine()) != null) {
                 String trimmed = line.trim();
 
-                if (trimmed.startsWith("-") || trimmed.startsWith("+")) {
+                if (trimmed.startsWith("+") || trimmed.startsWith("-")) {
+                    if (trimmed.charAt(0) != marker) {
+                        currentDeclaration = null;
+                        continue;
+                    }
                     String content = trimmed.substring(1).trim();
                     if (content.isEmpty()) {
                         continue;
                     }
 
-                    if (currentMethod == null && content.contains("(") &&
+                    if (currentDeclaration == null && content.contains("(") &&
                             (content.contains("public") || content.contains("protected") || content.contains("private"))) {
-                        currentMethod = new StringBuilder(content);
-                    } else if (currentMethod != null) {
-                        currentMethod.append(" ").append(content);
+                        currentDeclaration = new StringBuilder(content);
+                    } else if (currentDeclaration != null) {
+                        currentDeclaration.append(" ").append(content);
                     }
 
-                    if (currentMethod != null && currentMethod.indexOf("(") >= 0 && currentMethod.indexOf(")") >= 0) {
-                        String normalized = normalizeMethodSignature(currentMethod.toString());
+                    if (currentDeclaration != null && currentDeclaration.indexOf("(") >= 0 && currentDeclaration.indexOf(")") >= 0) {
+                        String normalized = normalizeMethodSignature(currentDeclaration.toString());
                         if (!normalized.isEmpty()) {
-                            patchedMethods.add(normalized);
-                            String methodName = normalized.substring(0, normalized.indexOf('('));
-                            patchedMethods.add(methodName);
+                            signatures.add(normalized);
                         }
-                        currentMethod = null;
+                        currentDeclaration = null;
                     }
                     continue;
                 }
 
-                if (currentMethod != null && (trimmed.startsWith("{") || trimmed.startsWith("}"))) {
-                    String normalized = normalizeMethodSignature(currentMethod.toString());
+                if (currentDeclaration != null && (trimmed.startsWith("{") || trimmed.startsWith("}"))) {
+                    String normalized = normalizeMethodSignature(currentDeclaration.toString());
                     if (!normalized.isEmpty()) {
-                        patchedMethods.add(normalized);
-                        String methodName = normalized.substring(0, normalized.indexOf('('));
-                        patchedMethods.add(methodName);
+                        signatures.add(normalized);
                     }
-                    currentMethod = null;
+                    currentDeclaration = null;
                 }
             }
         }
-        return patchedMethods;
+        return signatures;
     }
 
     private static Map<String, String> readAddedConstructorDeclarations(String patchPath) throws IOException {
@@ -256,10 +364,12 @@ public class JavaPatchToRdf {
         model.setNsPrefix("icodm", EX_NS);
         model.setNsPrefix("rdf", RDF.getURI());
 
-        Set<String> patchedMethodSignatures = new HashSet<>();
+        Set<String> addedSignatures;
+        Set<String> removedSignatures;
         Map<String, String> addedConstructorDeclarations;
         try {
-            patchedMethodSignatures.addAll(readPatchedMethodSignatures(patchPath));
+            addedSignatures = readPatchSignatures(patchPath, '+');
+            removedSignatures = readPatchSignatures(patchPath, '-');
             addedConstructorDeclarations = readAddedConstructorDeclarations(patchPath);
         } catch (IOException e) {
             throw new IllegalArgumentException("Unable to read patch file: " + patchPath, e);
@@ -272,7 +382,7 @@ public class JavaPatchToRdf {
         Property wocName = model.createProperty(WOC_NS + "name");
         Property wocHasModifier = model.createProperty(WOC_NS + "hasModifier");
         Property wocHasReturnType = model.createProperty(WOC_NS + "hasReturnType");
-        Property wocHasParameter = model.createProperty(WOC_NS + "hasParameter");
+        Property wocParameters = model.createProperty(WOC_NS + "parameters");
         Property wocHasConstructor = model.createProperty(WOC_NS + "hasConstructor");
         Property wocParamIndex = model.createProperty(WOC_NS + "parameterIndex");
         Property wocParamType = model.createProperty(WOC_NS + "parameterType");
@@ -294,8 +404,22 @@ public class JavaPatchToRdf {
             for (CtMethod<?> method : type.getMethods()) {
                 if (method.isPublic() || method.isProtected()) {
                     String visibility = method.isPublic() ? "public" : "protected";
-                    String patchedMethodURI = EX_NS + fqcn + "_" + method.getSimpleName() + "_patched";
-                    String stableMethodURI = EX_NS + fqcn + "_" + method.getSimpleName() + "_stable";
+                    List<String> parameterTypes = getParameterTypeNames(method);
+                        List<String> normalizedParameterTypes = parameterTypes.stream()
+                            .map(JavaPatchToRdf::normalizeTypeName)
+                            .collect(java.util.stream.Collectors.toList());
+                            boolean sourceMatchesRemovedSignature = hasExactPatchSignature(removedSignatures,
+                                method.getSimpleName(), normalizedParameterTypes);
+                            List<String> addedTypes = findExactPatchParameterTypes(addedSignatures,
+                                method.getSimpleName(), normalizedParameterTypes);
+                            if (addedTypes == null && sourceMatchesRemovedSignature) {
+                            addedTypes = findExtendedPatchParameterTypes(addedSignatures,
+                                method.getSimpleName(), normalizedParameterTypes);
+                            }
+                            if (addedTypes != null) {
+                        parameterTypes = resolvePatchParameterTypes(type, addedTypes);
+                    }
+                    String patchedMethodURI = buildMemberURI(fqcn, method.getSimpleName(), parameterTypes, "patched");
 
                     Resource patchedMethodRes = model.createResource(patchedMethodURI)
                             .addProperty(RDF.type, wocMethodClass)
@@ -303,40 +427,18 @@ public class JavaPatchToRdf {
                             .addProperty(wocHasModifier, visibility)
                             .addProperty(wocHasReturnType, method.getType().getQualifiedName());
 
-                    if (isPatchedMethod(method, patchedMethodSignatures)) {
-                        patchedMethodRes.addProperty(exIsPatchOfMethod, model.createResource(stableMethodURI));
+                        if (isPatchedMethod(method, addedSignatures, removedSignatures)) {
+                            List<String> oldSignatureTypes = sourceMatchesRemovedSignature ? normalizedParameterTypes
+                                    : findClosestPatchParameterTypes(removedSignatures,
+                                            method.getSimpleName(), normalizedParameterTypes);
+                            List<String> oldTypes = oldSignatureTypes == null ? parameterTypes
+                                    : resolvePatchParameterTypes(type, oldSignatureTypes);
+                        patchedMethodRes.addProperty(exIsPatchOfMethod,
+                            model.createResource(buildMemberURI(fqcn, method.getSimpleName(), oldTypes, "stable")));
                     }
 
-                    List<String> patchSignatureParamTypes = patchedMethodSignatures.stream()
-                            .filter(signature -> signature.startsWith(method.getSimpleName() + "("))
-                            .map(JavaPatchToRdf::extractParameterTypesFromMethodSignature)
-                            .filter(types -> !types.isEmpty() && types.size() > method.getParameters().size())
-                            .findFirst()
-                            .orElse(List.of());
-
-                    int index = 0;
-                    for (CtParameter<?> param : method.getParameters()) {
-                        String paramURI = patchedMethodURI + "_param_" + index;
-                        Resource paramRes = model.createResource(paramURI)
-                                .addProperty(RDF.type, wocParameterClass)
-                                .addProperty(wocParamIndex, model.createTypedLiteral(index))
-                                .addProperty(wocParamType, param.getType().getQualifiedName());
-
-                        patchedMethodRes.addProperty(wocHasParameter, paramRes);
-                        index++;
-                    }
-
-                    for (int patchIndex = method.getParameters().size(); patchIndex < patchSignatureParamTypes.size(); patchIndex++) {
-                        String paramType = resolveParameterTypeFromSpoon(type, method,
-                                patchSignatureParamTypes.get(patchIndex));
-                        String paramURI = patchedMethodURI + "_param_" + patchIndex;
-                        Resource paramRes = model.createResource(paramURI)
-                                .addProperty(RDF.type, wocParameterClass)
-                                .addProperty(wocParamIndex, model.createTypedLiteral(patchIndex))
-                                .addProperty(wocParamType, paramType);
-
-                        patchedMethodRes.addProperty(wocHasParameter, paramRes);
-                    }
+                        patchedMethodRes.addProperty(wocParameters,
+                            createParameterList(model, parameterTypes, wocParameterClass, wocParamIndex, wocParamType));
 
                     for (CtTypeReference<? extends Throwable> excRef : method.getThrownTypes()) {
                         patchedMethodRes.addProperty(wocThrowsException, excRef.getQualifiedName());
@@ -346,32 +448,41 @@ public class JavaPatchToRdf {
 
             for (CtConstructor<?> constructor : type.getElements(new TypeFilter<>(CtConstructor.class))) {
                 String visibility = constructor.isPublic() ? "public" : constructor.isProtected() ? "protected" : constructor.isPrivate() ? "private" : "package-private";
-                String constructorSignature = buildConstructorSignature(constructor);
-                String constructorURI = EX_NS + fqcn + "_" + constructorSignature + "_constructor";
+                List<String> parameterTypes = getParameterTypeNames(constructor);
+                List<String> normalizedParameterTypes = parameterTypes.stream()
+                    .map(JavaPatchToRdf::normalizeTypeName)
+                    .collect(java.util.stream.Collectors.toList());
+                boolean sourceMatchesRemovedSignature = hasExactPatchSignature(removedSignatures,
+                        type.getSimpleName(), normalizedParameterTypes);
+                List<String> addedTypes = findExactPatchParameterTypes(addedSignatures,
+                        type.getSimpleName(), normalizedParameterTypes);
+                if (addedTypes == null && sourceMatchesRemovedSignature) {
+                    addedTypes = findExtendedPatchParameterTypes(addedSignatures,
+                            type.getSimpleName(), normalizedParameterTypes);
+                }
+                if (addedTypes != null) {
+                    parameterTypes = resolvePatchParameterTypes(type, addedTypes);
+                }
+                String constructorURI = buildMemberURI(fqcn, "constructor", parameterTypes, "current");
 
                 Resource constructorRes = model.createResource(constructorURI)
                         .addProperty(RDF.type, wocConstructorClass)
                         .addProperty(wocName, constructor.getSimpleName())
                         .addProperty(wocHasModifier, visibility);
 
-                if (isPatchedConstructor(constructor, patchedMethodSignatures)) {
-                    constructorRes.addProperty(exIsPatchOfConstructor,
-                        model.createResource(constructorURI + "_stable"));
+                if (isPatchedConstructor(constructor, addedSignatures, removedSignatures)) {
+                    List<String> oldSignatureTypes = sourceMatchesRemovedSignature ? normalizedParameterTypes
+                            : findClosestPatchParameterTypes(removedSignatures,
+                                    type.getSimpleName(), normalizedParameterTypes);
+                    List<String> oldTypes = oldSignatureTypes == null ? parameterTypes
+                            : resolvePatchParameterTypes(type, oldSignatureTypes);
+                    constructorRes.addProperty(exIsPatchOfConstructor, model.createResource(
+                        buildMemberURI(fqcn, "constructor", oldTypes, "stable")));
                 }
 
                 classResource.addProperty(wocHasConstructor, constructorRes);
-
-                int index = 0;
-                for (CtParameter<?> param : constructor.getParameters()) {
-                    String paramURI = constructorURI + "_param_" + index;
-                    Resource paramRes = model.createResource(paramURI)
-                            .addProperty(RDF.type, wocParameterClass)
-                            .addProperty(wocParamIndex, model.createTypedLiteral(index))
-                            .addProperty(wocParamType, param.getType().getQualifiedName());
-
-                    constructorRes.addProperty(wocHasParameter, paramRes);
-                    index++;
-                }
+                constructorRes.addProperty(wocParameters,
+                    createParameterList(model, parameterTypes, wocParameterClass, wocParamIndex, wocParamType));
 
                 for (CtTypeReference<? extends Throwable> excRef : constructor.getThrownTypes()) {
                     constructorRes.addProperty(wocThrowsException, excRef.getQualifiedName());
@@ -380,7 +491,7 @@ public class JavaPatchToRdf {
 
             Set<String> existingConstructorURIs = new HashSet<>();
             for (CtConstructor<?> constructor : type.getElements(new TypeFilter<>(CtConstructor.class))) {
-                existingConstructorURIs.add(EX_NS + fqcn + "_" + buildConstructorSignature(constructor) + "_constructor");
+                existingConstructorURIs.add(buildMemberURI(fqcn, "constructor", getParameterTypeNames(constructor), "current"));
             }
 
             for (Map.Entry<String, String> addedConstructor : addedConstructorDeclarations.entrySet()) {
@@ -403,9 +514,7 @@ public class JavaPatchToRdf {
                     qualifiedParameterTypes.add(resolvedType);
                 }
 
-                String constructorSignature = qualifiedParameterTypes.isEmpty() ? "default"
-                        : String.join("_", qualifiedParameterTypes).replace('.', '_');
-                String constructorURI = EX_NS + fqcn + "_" + constructorSignature + "_constructor";
+                String constructorURI = buildMemberURI(fqcn, "constructor", qualifiedParameterTypes, "current");
                 if (!existingConstructorURIs.add(constructorURI)) {
                     continue;
                 }
@@ -414,17 +523,11 @@ public class JavaPatchToRdf {
                         .addProperty(RDF.type, wocConstructorClass)
                         .addProperty(wocName, "<init>")
                         .addProperty(wocHasModifier, addedConstructor.getValue())
-                        .addProperty(exIsPatchOfConstructor, model.createResource(constructorURI + "_stable"));
+                        .addProperty(exIsPatchOfConstructor, model.createResource(
+                            buildMemberURI(fqcn, "constructor", qualifiedParameterTypes, "stable")))
+                        .addProperty(wocParameters,
+                            createParameterList(model, qualifiedParameterTypes, wocParameterClass, wocParamIndex, wocParamType));
                 classResource.addProperty(wocHasConstructor, constructorRes);
-
-                for (int index = 0; index < qualifiedParameterTypes.size(); index++) {
-                    String paramURI = constructorURI + "_param_" + index;
-                    Resource paramRes = model.createResource(paramURI)
-                            .addProperty(RDF.type, wocParameterClass)
-                            .addProperty(wocParamIndex, model.createTypedLiteral(index))
-                            .addProperty(wocParamType, qualifiedParameterTypes.get(index));
-                    constructorRes.addProperty(wocHasParameter, paramRes);
-                }
             }
         }
 
