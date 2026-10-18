@@ -15,3 +15,11 @@ information about dependent java software components.
 - https://github.com/INRIA/spoon for parsing java sources
 - https://github.com/revapi/revapi for analyzing java APIs
 - https://zenodo.org/records/577939/files/CodeOntology.owl?download=1 java code ontology
+
+## Reproduced third-party licenses
+
+The license texts for the projects referenced above are reproduced locally in this repository so they remain available alongside the project source:
+
+- Spoon: [licenses/spoon/LICENSE-MIT.txt](licenses/spoon/LICENSE-MIT.txt) and [licenses/spoon/LICENSE-CECILL-C.txt](licenses/spoon/LICENSE-CECILL-C.txt)
+- Revapi: [licenses/revapi/LICENSE](licenses/revapi/LICENSE)
+- CodeOntology: [licenses/codeontology/LICENSE.txt](licenses/codeontology/LICENSE.txt)
