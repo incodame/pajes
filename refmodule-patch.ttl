@@ -97,7 +97,7 @@ icodm:org.incodame.paragraph.sample.webapp.demo.Parameter_setLoc_patched
 icodm:org.incodame.paragraph.sample.webapp.demo.Parameter_setDoc_patched_param_1
         rdf:type            woc:Parameter;
         woc:parameterIndex  "1"^^<http://www.w3.org/2001/XMLSchema#int>;
-        woc:parameterType   "String" .
+        woc:parameterType   "java.lang.String" .
 
 icodm:org.incodame.paragraph.sample.webapp.demo.Parameter_java_lang_String_java_lang_String_constructor_param_0
         rdf:type            woc:Parameter;

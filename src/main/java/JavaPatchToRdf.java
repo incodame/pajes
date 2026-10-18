@@ -112,6 +112,26 @@ public class JavaPatchToRdf {
         return paramTypes;
     }
 
+    private static String resolveParameterTypeFromSpoon(CtType<?> declaringType, CtMethod<?> method,
+            String patchedTypeName) {
+        String simplePatchedTypeName = normalizeTypeName(patchedTypeName);
+
+        for (CtParameter<?> parameter : method.getParameters()) {
+            CtTypeReference<?> parameterType = parameter.getType();
+            if (parameterType.getSimpleName().equals(simplePatchedTypeName)) {
+                return parameterType.getQualifiedName();
+            }
+        }
+
+        for (CtTypeReference<?> typeReference : declaringType.getElements(new TypeFilter<>(CtTypeReference.class))) {
+            if (typeReference.getSimpleName().equals(simplePatchedTypeName)) {
+                return typeReference.getQualifiedName();
+            }
+        }
+
+        return patchedTypeName;
+    }
+
     private static boolean isPatchedMethod(CtMethod<?> method, Set<String> patchedMethodSignatures) {
         String methodName = method.getSimpleName();
         String signature = method.getSimpleName() + "(" + method.getParameters().stream()
@@ -255,7 +275,8 @@ public class JavaPatchToRdf {
                     }
 
                     for (int patchIndex = method.getParameters().size(); patchIndex < patchSignatureParamTypes.size(); patchIndex++) {
-                        String paramType = patchSignatureParamTypes.get(patchIndex);
+                        String paramType = resolveParameterTypeFromSpoon(type, method,
+                                patchSignatureParamTypes.get(patchIndex));
                         String paramURI = patchedMethodURI + "_param_" + patchIndex;
                         Resource paramRes = model.createResource(paramURI)
                                 .addProperty(RDF.type, wocParameterClass)

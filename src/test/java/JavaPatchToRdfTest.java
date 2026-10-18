@@ -108,5 +108,8 @@ class JavaPatchToRdfTest {
                 .orElseThrow(() -> new AssertionError("Missing multiline method resource"));
 
         assertTrue(patchedMethod.listProperties(model.createProperty("http://webofcode.orghasParameter")).toList().size() == 2);
+        Resource sinceInformationParameter = model.getResource(patchedMethod.getURI() + "_param_1");
+        assertTrue(sinceInformationParameter.getProperty(model.createProperty("http://webofcode.orgparameterType"))
+                .getString().equals("java.lang.String"));
     }
 }
