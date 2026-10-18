@@ -1,0 +1,83 @@
+@prefix icodm: <https://github.com/Incodam> .
+@prefix rdf:   <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix woc:   <http://webofcode.org> .
+
+icodm:org.incodame.paragraph.sample.webapp.demo.Parameter_setName_patched_param_0
+        rdf:type            woc:Parameter;
+        woc:parameterIndex  "0"^^<http://www.w3.org/2001/XMLSchema#int>;
+        woc:parameterType   "java.lang.String" .
+
+icodm:org.incodame.paragraph.sample.webapp.demo.Parameter_setDoc_patched_param_0
+        rdf:type            woc:Parameter;
+        woc:parameterIndex  "0"^^<http://www.w3.org/2001/XMLSchema#int>;
+        woc:parameterType   "java.lang.String" .
+
+icodm:org.incodame.paragraph.sample.webapp.demo.Parameter_setLoc_patched_param_0
+        rdf:type            woc:Parameter;
+        woc:parameterIndex  "0"^^<http://www.w3.org/2001/XMLSchema#int>;
+        woc:parameterType   "java.lang.String" .
+
+icodm:org.incodame.paragraph.sample.webapp.demo.Parameter_setLoc_patched
+        rdf:type               woc:Method;
+        woc:hasModifier        "public";
+        woc:hasParameter       icodm:org.incodame.paragraph.sample.webapp.demo.Parameter_setLoc_patched_param_0;
+        woc:hasReturnType      "void";
+        woc:name               "setLoc";
+        icodm:isPatchOfMethod  icodm:org.incodame.paragraph.sample.webapp.demo.Parameter_setLoc_stable .
+
+icodm:org.incodame.paragraph.sample.webapp.demo.Parameter_setDoc_patched
+        rdf:type               woc:Method;
+        woc:hasModifier        "public";
+        woc:hasParameter       icodm:org.incodame.paragraph.sample.webapp.demo.Parameter_setDoc_patched_param_0;
+        woc:hasReturnType      "void";
+        woc:name               "setDoc";
+        icodm:isPatchOfMethod  icodm:org.incodame.paragraph.sample.webapp.demo.Parameter_setDoc_stable .
+
+icodm:org.incodame.paragraph.sample.webapp.demo.Parameter_setValue_patched
+        rdf:type               woc:Method;
+        woc:hasModifier        "public";
+        woc:hasParameter       icodm:org.incodame.paragraph.sample.webapp.demo.Parameter_setValue_patched_param_0;
+        woc:hasReturnType      "void";
+        woc:name               "setValue";
+        icodm:isPatchOfMethod  icodm:org.incodame.paragraph.sample.webapp.demo.Parameter_setValue_stable .
+
+icodm:org.incodame.paragraph.sample.webapp.demo.Parameter_setName_patched
+        rdf:type               woc:Method;
+        woc:hasModifier        "public";
+        woc:hasParameter       icodm:org.incodame.paragraph.sample.webapp.demo.Parameter_setName_patched_param_0;
+        woc:hasReturnType      "void";
+        woc:name               "setName";
+        icodm:isPatchOfMethod  icodm:org.incodame.paragraph.sample.webapp.demo.Parameter_setName_stable .
+
+icodm:org.incodame.paragraph.sample.webapp.demo.Parameter_getLoc_patched
+        rdf:type               woc:Method;
+        woc:hasModifier        "public";
+        woc:hasReturnType      "java.lang.String";
+        woc:name               "getLoc";
+        icodm:isPatchOfMethod  icodm:org.incodame.paragraph.sample.webapp.demo.Parameter_getLoc_stable .
+
+icodm:org.incodame.paragraph.sample.webapp.demo.Parameter_getDoc_patched
+        rdf:type               woc:Method;
+        woc:hasModifier        "public";
+        woc:hasReturnType      "java.lang.String";
+        woc:name               "getDoc";
+        icodm:isPatchOfMethod  icodm:org.incodame.paragraph.sample.webapp.demo.Parameter_getDoc_stable .
+
+icodm:org.incodame.paragraph.sample.webapp.demo.Parameter_getName_patched
+        rdf:type               woc:Method;
+        woc:hasModifier        "public";
+        woc:hasReturnType      "java.lang.String";
+        woc:name               "getName";
+        icodm:isPatchOfMethod  icodm:org.incodame.paragraph.sample.webapp.demo.Parameter_getName_stable .
+
+icodm:org.incodame.paragraph.sample.webapp.demo.Parameter_setValue_patched_param_0
+        rdf:type            woc:Parameter;
+        woc:parameterIndex  "0"^^<http://www.w3.org/2001/XMLSchema#int>;
+        woc:parameterType   "java.lang.String" .
+
+icodm:org.incodame.paragraph.sample.webapp.demo.Parameter_getValue_patched
+        rdf:type               woc:Method;
+        woc:hasModifier        "public";
+        woc:hasReturnType      "java.lang.String";
+        woc:name               "getValue";
+        icodm:isPatchOfMethod  icodm:org.incodame.paragraph.sample.webapp.demo.Parameter_getValue_stable .
