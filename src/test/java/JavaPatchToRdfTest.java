@@ -1,15 +1,28 @@
 import org.apache.jena.rdf.model.Model;
 import org.apache.jena.rdf.model.Property;
+import org.apache.jena.rdf.model.RDFList;
 import org.apache.jena.rdf.model.Resource;
 import org.apache.jena.vocabulary.RDF;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
+import java.util.stream.Collectors;
 
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class JavaPatchToRdfTest {
+
+        private static List<String> parameterTypes(Resource member) {
+                Property parameters = member.getModel().createProperty("http://webofcode.orgparameters");
+                Property parameterType = member.getModel().createProperty("http://webofcode.orgparameterType");
+                RDFList list = member.getProperty(parameters).getResource().as(RDFList.class);
+                return list.asJavaList().stream()
+                                .map(node -> node.asResource().getProperty(parameterType).getString())
+                                .collect(Collectors.toList());
+        }
 
     @Test
     void generatesRdfFactsForClassConstructors() throws Exception {
@@ -59,6 +72,32 @@ class JavaPatchToRdfTest {
     }
 
     @Test
+    void usesCompactDistinctMethodUrisAndOrderedParameterLists() throws Exception {
+        Path sourceFile = Files.createTempFile("OverloadedMethodExample", ".java");
+        Files.write(sourceFile, (
+                "package demo;\n" +
+                "public class Example {\n" +
+                "    public void update(String name) { }\n" +
+                "    public void update(String name, int count) { }\n" +
+                "}\n"
+        ).getBytes());
+
+        Model model = JavaPatchToRdf.buildModelForFile(sourceFile.toString());
+        List<Resource> overloads = model.listResourcesWithProperty(RDF.type, model.getResource("http://webofcode.orgMethod"))
+                .toList().stream()
+                .filter(resource -> resource.hasProperty(model.createProperty("http://webofcode.orgname"), "update"))
+                .collect(Collectors.toList());
+
+        assertTrue(overloads.size() == 2);
+        assertNotEquals(overloads.get(0).getURI(), overloads.get(1).getURI());
+        assertTrue(overloads.stream().allMatch(resource -> resource.getURI()
+                .matches(".*/demo\\.Example_update_[0-9a-f]{12}_patched")));
+        assertTrue(overloads.stream().anyMatch(resource -> parameterTypes(resource).equals(List.of("java.lang.String"))));
+        assertTrue(overloads.stream().anyMatch(resource -> parameterTypes(resource)
+                .equals(List.of("java.lang.String", "int"))));
+    }
+
+    @Test
     void onlyAddsIsPatchOfMethodForPatchedMethods() throws Exception {
         String sourcePath = "/Users/tanguyro/Incodame/paragraph/ParagraphUI/src/main/java/org/incodame/paragraph/sample/webapp/demo/Parameter.java";
         String patchPath = "/Users/tanguyro/Incodame/paragraph/set-doc-since-information.patch";
@@ -66,37 +105,37 @@ class JavaPatchToRdfTest {
         Model model = JavaPatchToRdf.buildModelForFile(sourcePath, patchPath);
 
         Resource patchedMethod = model.listResourcesWithProperty(RDF.type, model.getResource("http://webofcode.orgMethod")).toList().stream()
-                .filter(r -> r.getURI().contains("Parameter_setDoc_patched"))
+                .filter(r -> r.hasProperty(model.createProperty("http://webofcode.orgname"), "setDoc"))
                 .findFirst()
                 .orElseThrow(() -> new AssertionError("Missing patched method resource"));
         assertTrue(patchedMethod.hasProperty(model.createProperty("https://github.com/Incodam/isPatchOfMethod")));
 
         Resource unpatchedMethod = model.listResourcesWithProperty(RDF.type, model.getResource("http://webofcode.orgMethod")).toList().stream()
-                .filter(r -> r.getURI().contains("Parameter_setName_patched"))
+                .filter(r -> r.hasProperty(model.createProperty("http://webofcode.orgname"), "setName"))
                 .findFirst()
                 .orElseThrow(() -> new AssertionError("Missing unpatched method resource"));
         assertTrue(!unpatchedMethod.hasProperty(model.createProperty("https://github.com/Incodam/isPatchOfMethod")));
     }
 
-        @Test
-        void onlyAddsIsPatchOfConstructorForPatchedConstructors() throws Exception {
-                String sourcePath = "/Users/tanguyro/Incodame/paragraph/ParagraphUI/src/main/java/org/incodame/paragraph/sample/webapp/demo/Parameter.java";
-                String patchPath = "/Users/tanguyro/Incodame/paragraph/add-parameter-name-constructor.patch";
+    @Test
+    void onlyAddsIsPatchOfConstructorForPatchedConstructors() throws Exception {
+        String sourcePath = "/Users/tanguyro/Incodame/paragraph/ParagraphUI/src/main/java/org/incodame/paragraph/sample/webapp/demo/Parameter.java";
+        String patchPath = "/Users/tanguyro/Incodame/paragraph/add-parameter-name-constructor.patch";
 
-                Model model = JavaPatchToRdf.buildModelForFile(sourcePath, patchPath);
+        Model model = JavaPatchToRdf.buildModelForFile(sourcePath, patchPath);
 
-                Resource patchedConstructor = model.listResourcesWithProperty(RDF.type, model.getResource("http://webofcode.orgConstructor")).toList().stream()
-                                .filter(r -> r.getURI().contains("Parameter_java_lang_String_constructor"))
-                                .findFirst()
-                                .orElseThrow(() -> new AssertionError("Missing patched constructor resource"));
-                assertTrue(patchedConstructor.hasProperty(model.createProperty("https://github.com/Incodam/isPatchOfConstructor")));
+        Resource patchedConstructor = model.listResourcesWithProperty(RDF.type, model.getResource("http://webofcode.orgConstructor")).toList().stream()
+                .filter(r -> parameterTypes(r).equals(java.util.Collections.singletonList("java.lang.String")))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("Missing patched constructor resource"));
+        assertTrue(patchedConstructor.hasProperty(model.createProperty("https://github.com/Incodam/isPatchOfConstructor")));
 
-                Resource unpatchedConstructor = model.listResourcesWithProperty(RDF.type, model.getResource("http://webofcode.orgConstructor")).toList().stream()
-                                .filter(r -> r.getURI().contains("Parameter_java_lang_String_java_lang_String_constructor"))
-                                .findFirst()
-                                .orElseThrow(() -> new AssertionError("Missing unpatched constructor resource"));
-                assertTrue(!unpatchedConstructor.hasProperty(model.createProperty("https://github.com/Incodam/isPatchOfConstructor")));
-        }
+        Resource unpatchedConstructor = model.listResourcesWithProperty(RDF.type, model.getResource("http://webofcode.orgConstructor")).toList().stream()
+                .filter(r -> parameterTypes(r).equals(java.util.Arrays.asList("java.lang.String", "java.lang.String")))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("Missing unpatched constructor resource"));
+        assertTrue(!unpatchedConstructor.hasProperty(model.createProperty("https://github.com/Incodam/isPatchOfConstructor")));
+    }
 
     @Test
     void generatesAllParametersForMultilineMethodSignature() throws Exception {
@@ -124,14 +163,11 @@ class JavaPatchToRdfTest {
         Model model = JavaPatchToRdf.buildModelForFile(sourceFile.toString(), patchFile.toString());
 
         Resource patchedMethod = model.listResourcesWithProperty(RDF.type, model.getResource("http://webofcode.orgMethod")).toList().stream()
-                .filter(r -> r.getURI().contains("Example_setDoc_patched"))
+                .filter(r -> r.hasProperty(model.createProperty("http://webofcode.orgname"), "setDoc"))
                 .findFirst()
                 .orElseThrow(() -> new AssertionError("Missing multiline method resource"));
 
-        assertTrue(patchedMethod.listProperties(model.createProperty("http://webofcode.orghasParameter")).toList().size() == 2);
-        Resource sinceInformationParameter = model.getResource(patchedMethod.getURI() + "_param_1");
-        assertTrue(sinceInformationParameter.getProperty(model.createProperty("http://webofcode.orgparameterType"))
-                .getString().equals("java.lang.String"));
+        assertTrue(parameterTypes(patchedMethod).equals(java.util.Arrays.asList("java.lang.String", "java.lang.String")));
     }
 
     @Test
@@ -160,18 +196,16 @@ class JavaPatchToRdfTest {
         Property isPatchOfConstructor = model.createProperty("https://github.com/Incodam/isPatchOfConstructor");
         Resource constructorType = model.getResource("http://webofcode.orgConstructor");
         Resource changedConstructor = model.listResourcesWithProperty(RDF.type, constructorType).toList().stream()
-                .filter(resource -> resource.getURI().contains("java_lang_String_int_constructor"))
+                .filter(resource -> parameterTypes(resource).equals(java.util.Arrays.asList("java.lang.String", "int")))
                 .findFirst()
                 .orElseThrow(() -> new AssertionError("Missing changed constructor resource"));
         Resource unchangedConstructor = model.listResourcesWithProperty(RDF.type, constructorType).toList().stream()
-                .filter(resource -> resource.getURI().contains("_int_constructor"))
-                .filter(resource -> !resource.getURI().contains("java_lang_String_int_constructor"))
+                .filter(resource -> parameterTypes(resource).equals(java.util.Collections.singletonList("int")))
                 .findFirst()
                 .orElseThrow(() -> new AssertionError("Missing unchanged constructor resource"));
 
         assertTrue(changedConstructor.hasProperty(isPatchOfConstructor));
         assertTrue(!unchangedConstructor.hasProperty(isPatchOfConstructor));
-        assertTrue(changedConstructor.getProperty(isPatchOfConstructor).getResource().getURI()
-                .equals(changedConstructor.getURI() + "_stable"));
+        assertTrue(changedConstructor.getProperty(isPatchOfConstructor).getResource().getURI().endsWith("_stable"));
     }
 }
