@@ -15,8 +15,10 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 public class JavaPatchToRdf {
@@ -144,6 +146,14 @@ public class JavaPatchToRdf {
                 || patchedMethodSignatures.contains(normalizeMethodSignature(method.toString()));
     }
 
+    private static boolean isPatchedConstructor(CtConstructor<?> constructor, Set<String> patchedMethodSignatures) {
+        String signature = constructor.getDeclaringType().getSimpleName() + "(" + constructor.getParameters().stream()
+                .map(parameter -> normalizeTypeName(parameter.getType().getQualifiedName()))
+                .reduce((first, second) -> first + "," + second)
+                .orElse("") + ")";
+        return patchedMethodSignatures.contains(signature);
+    }
+
     private static Set<String> readPatchedMethodSignatures(String patchPath) throws IOException {
         Set<String> patchedMethods = new HashSet<>();
         if (patchPath == null || patchPath.trim().isEmpty()) {
@@ -196,6 +206,46 @@ public class JavaPatchToRdf {
         return patchedMethods;
     }
 
+    private static Map<String, String> readAddedConstructorDeclarations(String patchPath) throws IOException {
+        Map<String, String> constructors = new HashMap<>();
+        if (patchPath == null || patchPath.trim().isEmpty()) {
+            return constructors;
+        }
+
+        StringBuilder currentConstructor = null;
+        try (BufferedReader reader = Files.newBufferedReader(Paths.get(patchPath))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                String trimmed = line.trim();
+                if (trimmed.startsWith("+++") || !trimmed.startsWith("+")) {
+                    currentConstructor = null;
+                    continue;
+                }
+
+                String content = trimmed.substring(1).trim();
+                if (currentConstructor == null && content.contains("(")
+                        && (content.contains("public") || content.contains("protected") || content.contains("private"))) {
+                    currentConstructor = new StringBuilder(content);
+                } else if (currentConstructor != null) {
+                    currentConstructor.append(" ").append(content);
+                }
+
+                if (currentConstructor != null && currentConstructor.indexOf("(") >= 0
+                        && currentConstructor.indexOf(")") >= 0) {
+                    String normalized = normalizeMethodSignature(currentConstructor.toString());
+                    if (!normalized.isEmpty()) {
+                        String declaration = currentConstructor.toString();
+                        String visibility = declaration.contains("protected") ? "protected"
+                                : declaration.contains("private") ? "private" : "public";
+                        constructors.put(normalized, visibility);
+                    }
+                    currentConstructor = null;
+                }
+            }
+        }
+        return constructors;
+    }
+
     public static Model buildModelForFile(String sourcePath) {
         return buildModelForFile(sourcePath, null);
     }
@@ -207,8 +257,10 @@ public class JavaPatchToRdf {
         model.setNsPrefix("rdf", RDF.getURI());
 
         Set<String> patchedMethodSignatures = new HashSet<>();
+        Map<String, String> addedConstructorDeclarations;
         try {
             patchedMethodSignatures.addAll(readPatchedMethodSignatures(patchPath));
+            addedConstructorDeclarations = readAddedConstructorDeclarations(patchPath);
         } catch (IOException e) {
             throw new IllegalArgumentException("Unable to read patch file: " + patchPath, e);
         }
@@ -227,6 +279,7 @@ public class JavaPatchToRdf {
         Property wocThrowsException = model.createProperty(WOC_NS + "throwsException");
 
         Property exIsPatchOfMethod = model.createProperty(EX_NS + "isPatchOfMethod");
+        Property exIsPatchOfConstructor = model.createProperty(EX_NS + "isPatchOfConstructor");
 
         Launcher launcher = new Launcher();
         launcher.getEnvironment().setNoClasspath(true);
@@ -243,7 +296,6 @@ public class JavaPatchToRdf {
                     String visibility = method.isPublic() ? "public" : "protected";
                     String patchedMethodURI = EX_NS + fqcn + "_" + method.getSimpleName() + "_patched";
                     String stableMethodURI = EX_NS + fqcn + "_" + method.getSimpleName() + "_stable";
-                    String methodSignature = method.getSignature();
 
                     Resource patchedMethodRes = model.createResource(patchedMethodURI)
                             .addProperty(RDF.type, wocMethodClass)
@@ -302,6 +354,11 @@ public class JavaPatchToRdf {
                         .addProperty(wocName, constructor.getSimpleName())
                         .addProperty(wocHasModifier, visibility);
 
+                if (isPatchedConstructor(constructor, patchedMethodSignatures)) {
+                    constructorRes.addProperty(exIsPatchOfConstructor,
+                        model.createResource(constructorURI + "_stable"));
+                }
+
                 classResource.addProperty(wocHasConstructor, constructorRes);
 
                 int index = 0;
@@ -318,6 +375,55 @@ public class JavaPatchToRdf {
 
                 for (CtTypeReference<? extends Throwable> excRef : constructor.getThrownTypes()) {
                     constructorRes.addProperty(wocThrowsException, excRef.getQualifiedName());
+                }
+            }
+
+            Set<String> existingConstructorURIs = new HashSet<>();
+            for (CtConstructor<?> constructor : type.getElements(new TypeFilter<>(CtConstructor.class))) {
+                existingConstructorURIs.add(EX_NS + fqcn + "_" + buildConstructorSignature(constructor) + "_constructor");
+            }
+
+            for (Map.Entry<String, String> addedConstructor : addedConstructorDeclarations.entrySet()) {
+                String signature = addedConstructor.getKey();
+                if (!signature.startsWith(type.getSimpleName() + "(")) {
+                    continue;
+                }
+
+                List<String> parameterTypes = extractParameterTypesFromMethodSignature(signature);
+                List<String> qualifiedParameterTypes = new ArrayList<>();
+                for (String parameterType : parameterTypes) {
+                    String resolvedType = parameterType;
+                    String simpleTypeName = normalizeTypeName(parameterType);
+                    for (CtTypeReference<?> typeReference : type.getElements(new TypeFilter<>(CtTypeReference.class))) {
+                        if (typeReference.getSimpleName().equals(simpleTypeName)) {
+                            resolvedType = typeReference.getQualifiedName();
+                            break;
+                        }
+                    }
+                    qualifiedParameterTypes.add(resolvedType);
+                }
+
+                String constructorSignature = qualifiedParameterTypes.isEmpty() ? "default"
+                        : String.join("_", qualifiedParameterTypes).replace('.', '_');
+                String constructorURI = EX_NS + fqcn + "_" + constructorSignature + "_constructor";
+                if (!existingConstructorURIs.add(constructorURI)) {
+                    continue;
+                }
+
+                Resource constructorRes = model.createResource(constructorURI)
+                        .addProperty(RDF.type, wocConstructorClass)
+                        .addProperty(wocName, "<init>")
+                        .addProperty(wocHasModifier, addedConstructor.getValue())
+                        .addProperty(exIsPatchOfConstructor, model.createResource(constructorURI + "_stable"));
+                classResource.addProperty(wocHasConstructor, constructorRes);
+
+                for (int index = 0; index < qualifiedParameterTypes.size(); index++) {
+                    String paramURI = constructorURI + "_param_" + index;
+                    Resource paramRes = model.createResource(paramURI)
+                            .addProperty(RDF.type, wocParameterClass)
+                            .addProperty(wocParamIndex, model.createTypedLiteral(index))
+                            .addProperty(wocParamType, qualifiedParameterTypes.get(index));
+                    constructorRes.addProperty(wocHasParameter, paramRes);
                 }
             }
         }
