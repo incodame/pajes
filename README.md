@@ -18,6 +18,14 @@ java -jar target/pajes-0.0.1-SNAPSHOT.jar "/Users/tanguyro/Incodame/paragraph/Pa
 
 will generate RDF facts into file "refmodule-patch.ttl"
 
+To generate RDF facts from a compiled library JAR using Revapi:
+
+```sh
+java -cp target/pajes-0.0.1-SNAPSHOT.jar JavaLibToRdf "/path/to/library.jar"
+```
+
+This writes the API surface to `refmodule.ttl` in the current directory.
+
 ## Dependencies
 
 - https://github.com/INRIA/spoon for parsing java sources

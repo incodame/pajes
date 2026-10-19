@@ -1,0 +1,165 @@
+@prefix icodm: <https://github.com/Incodam/> .
+@prefix woc:   <http://webofcode.org> .
+
+icodm:org.incodame.paragraph.sample.webapp.demo.Parameter.loc
+        a                  woc:Field;
+        woc:hasModifier    woc:Private;
+        woc:hasSimpleName  "loc" .
+
+icodm:org.incodame.paragraph.sample.webapp.demo.Parameter.value
+        a                  woc:Field;
+        woc:hasModifier    woc:Private;
+        woc:hasSimpleName  "value" .
+
+icodm:org.incodame.paragraph.sample.webapp.demo.ServletInitializer_configure_d8f3579d52a7_stable
+        a                  woc:Method;
+        woc:hasModifier    woc:Protected;
+        woc:hasSimpleName  "configure";
+        woc:parameters     ( [ a                   woc:Parameter;
+                               woc:parameterIndex  "0"^^<http://www.w3.org/2001/XMLSchema#int>;
+                               woc:parameterType   "org.springframework.boot.builder.SpringApplicationBuilder"
+                             ]
+                           ) .
+
+icodm:org.incodame.paragraph.sample.webapp.demo.Parameter_constructor_2d7cfce5a519_stable
+        a                  woc:Constructor;
+        woc:hasModifier    woc:Public;
+        woc:hasSimpleName  "<init>";
+        woc:parameters     () .
+
+icodm:org.incodame.paragraph.sample.webapp.demo.Parameter_setLoc_f039e92d30a6_stable
+        a                  woc:Method;
+        woc:hasModifier    woc:Public;
+        woc:hasSimpleName  "setLoc";
+        woc:parameters     ( [ a                   woc:Parameter;
+                               woc:parameterIndex  "0"^^<http://www.w3.org/2001/XMLSchema#int>;
+                               woc:parameterType   "java.lang.String"
+                             ]
+                           ) .
+
+icodm:org.incodame.paragraph.sample.webapp.demo.ServletInitializer
+        a                   woc:Class;
+        woc:hasConstructor  icodm:org.incodame.paragraph.sample.webapp.demo.ServletInitializer_constructor_31b1ec7772da_stable;
+        woc:hasMethod       icodm:org.incodame.paragraph.sample.webapp.demo.ServletInitializer_configure_d8f3579d52a7_stable;
+        woc:hasModifier     woc:Public;
+        woc:hasSimpleName   "ServletInitializer" .
+
+icodm:org.incodame.paragraph.sample.webapp.demo.Parameter_getLoc_1d3a1e34b5c3_stable
+        a                  woc:Method;
+        woc:hasModifier    woc:Public;
+        woc:hasSimpleName  "getLoc";
+        woc:parameters     () .
+
+icodm:org.springframework.boot.builder.SpringApplicationBuilder
+        a                  woc:Class;
+        woc:hasModifier    woc:Public;
+        woc:hasSimpleName  "SpringApplicationBuilder" .
+
+icodm:org.incodame.paragraph.sample.webapp.demo.ServletInitializer_constructor_31b1ec7772da_stable
+        a                  woc:Constructor;
+        woc:hasModifier    woc:Public;
+        woc:hasSimpleName  "<init>";
+        woc:parameters     () .
+
+icodm:org.incodame.paragraph.sample.webapp.demo.Parameter_getName_3c213608e38d_stable
+        a                  woc:Method;
+        woc:hasModifier    woc:Public;
+        woc:hasSimpleName  "getName";
+        woc:parameters     () .
+
+icodm:org.incodame.paragraph.sample.webapp.demo.Parameter_getDoc_606f62516e7d_stable
+        a                  woc:Method;
+        woc:hasModifier    woc:Public;
+        woc:hasSimpleName  "getDoc";
+        woc:parameters     () .
+
+icodm:org.incodame.paragraph.sample.webapp.demo.Parameter
+        a                   woc:Class;
+        woc:hasConstructor  icodm:org.incodame.paragraph.sample.webapp.demo.Parameter_constructor_c9ee8e9b8d61_stable , icodm:org.incodame.paragraph.sample.webapp.demo.Parameter_constructor_2d7cfce5a519_stable;
+        woc:hasField        icodm:org.incodame.paragraph.sample.webapp.demo.Parameter.name , icodm:org.incodame.paragraph.sample.webapp.demo.Parameter.doc , icodm:org.incodame.paragraph.sample.webapp.demo.Parameter.loc , icodm:org.incodame.paragraph.sample.webapp.demo.Parameter.value;
+        woc:hasMethod       icodm:org.incodame.paragraph.sample.webapp.demo.Parameter_getLoc_1d3a1e34b5c3_stable , icodm:org.incodame.paragraph.sample.webapp.demo.Parameter_setLoc_f039e92d30a6_stable , icodm:org.incodame.paragraph.sample.webapp.demo.Parameter_setDoc_c8fb82f0ebd2_stable , icodm:org.incodame.paragraph.sample.webapp.demo.Parameter_setName_fbc7107f04f8_stable , icodm:org.incodame.paragraph.sample.webapp.demo.Parameter_getName_3c213608e38d_stable , icodm:org.incodame.paragraph.sample.webapp.demo.Parameter_getDoc_606f62516e7d_stable , icodm:org.incodame.paragraph.sample.webapp.demo.Parameter_getValue_de51e4f5ea88_stable , icodm:org.incodame.paragraph.sample.webapp.demo.Parameter_setValue_c2a21dc02d35_stable;
+        woc:hasModifier     woc:Public;
+        woc:hasSimpleName   "Parameter" .
+
+icodm:org.incodame.paragraph.sample.webapp.demo.DemoApplication_constructor_fac302bf72b8_stable
+        a                  woc:Constructor;
+        woc:hasModifier    woc:Public;
+        woc:hasSimpleName  "<init>";
+        woc:parameters     () .
+
+icodm:org.incodame.paragraph.sample.webapp.demo.Parameter_constructor_c9ee8e9b8d61_stable
+        a                  woc:Constructor;
+        woc:hasModifier    woc:Public;
+        woc:hasSimpleName  "<init>";
+        woc:parameters     ( [ a                   woc:Parameter;
+                               woc:parameterIndex  "0"^^<http://www.w3.org/2001/XMLSchema#int>;
+                               woc:parameterType   "java.lang.String"
+                             ]
+                             [ a                   woc:Parameter;
+                               woc:parameterIndex  "1"^^<http://www.w3.org/2001/XMLSchema#int>;
+                               woc:parameterType   "java.lang.String"
+                             ]
+                           ) .
+
+icodm:org.incodame.paragraph.sample.webapp.demo.Parameter.doc
+        a                  woc:Field;
+        woc:hasModifier    woc:Private;
+        woc:hasSimpleName  "doc" .
+
+icodm:org.incodame.paragraph.sample.webapp.demo.Parameter_getValue_de51e4f5ea88_stable
+        a                  woc:Method;
+        woc:hasModifier    woc:Public;
+        woc:hasSimpleName  "getValue";
+        woc:parameters     () .
+
+icodm:org.incodame.paragraph.sample.webapp.demo.DemoApplication_main_479d147bff7f_stable
+        a                  woc:Method;
+        woc:hasModifier    woc:Public;
+        woc:hasSimpleName  "main";
+        woc:parameters     ( [ a                   woc:Parameter;
+                               woc:parameterIndex  "0"^^<http://www.w3.org/2001/XMLSchema#int>;
+                               woc:parameterType   "java.lang.String[]"
+                             ]
+                           ) .
+
+icodm:org.incodame.paragraph.sample.webapp.demo.Parameter.name
+        a                  woc:Field;
+        woc:hasModifier    woc:Private;
+        woc:hasSimpleName  "name" .
+
+icodm:org.incodame.paragraph.sample.webapp.demo.DemoApplication
+        a                   woc:Class;
+        woc:hasConstructor  icodm:org.incodame.paragraph.sample.webapp.demo.DemoApplication_constructor_fac302bf72b8_stable;
+        woc:hasMethod       icodm:org.incodame.paragraph.sample.webapp.demo.DemoApplication_main_479d147bff7f_stable;
+        woc:hasModifier     woc:Public;
+        woc:hasSimpleName   "DemoApplication" .
+
+icodm:org.incodame.paragraph.sample.webapp.demo.Parameter_setName_fbc7107f04f8_stable
+        a                  woc:Method;
+        woc:hasModifier    woc:Public;
+        woc:hasSimpleName  "setName";
+        woc:parameters     ( [ a                   woc:Parameter;
+                               woc:parameterIndex  "0"^^<http://www.w3.org/2001/XMLSchema#int>;
+                               woc:parameterType   "java.lang.String"
+                             ]
+                           ) .
+
+icodm:org.incodame.paragraph.sample.webapp.demo.Parameter_setValue_c2a21dc02d35_stable
+        a                  woc:Method;
+        woc:hasModifier    woc:Public;
+        woc:hasSimpleName  "setValue";
+        woc:parameters     ( [ a                   woc:Parameter;
+                               woc:parameterIndex  "0"^^<http://www.w3.org/2001/XMLSchema#int>;
+                               woc:parameterType   "java.lang.String"
+                             ]
+                           ) .
+
+icodm:org.incodame.paragraph.sample.webapp.demo.Parameter_setDoc_c8fb82f0ebd2_stable
+        a                  woc:Method;
+        woc:hasModifier    woc:Public;
+        woc:hasSimpleName  "setDoc";
+        woc:parameters     ( [ a                   woc:Parameter;
+                               woc:parameterIndex  "0"^^<http://www.w3.org/2001/XMLSchema#int>;
+                               woc:parameterType   "java.lang.String"
+                             ]
+                           ) .
