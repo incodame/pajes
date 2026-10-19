@@ -14,15 +14,15 @@ icodm:org.incodame.paragraph.sample.webapp.demo.Parameter_setLoc_f039e92d30a6_pa
                            ) .
 
 icodm:org.incodame.paragraph.sample.webapp.demo.Parameter_constructor_4fe743ccd8e9_current
-        rdf:type                    woc:Constructor;
-        woc:hasModifier             "public";
-        woc:name                    "<init>";
-        woc:parameters              ( [ rdf:type            woc:Parameter;
-                                        woc:parameterIndex  "0"^^<http://www.w3.org/2001/XMLSchema#int>;
-                                        woc:parameterType   "java.lang.String"
-                                      ]
-                                    );
-        icodm:isPatchOfConstructor  icodm:org.incodame.paragraph.sample.webapp.demo.Parameter_constructor_4fe743ccd8e9_stable .
+        rdf:type                woc:Constructor;
+        woc:hasModifier         "public";
+        woc:name                "<init>";
+        woc:parameters          ( [ rdf:type            woc:Parameter;
+                                    woc:parameterIndex  "0"^^<http://www.w3.org/2001/XMLSchema#int>;
+                                    woc:parameterType   "java.lang.String"
+                                  ]
+                                );
+        icodm:isNewConstructor  icodm:org.incodame.paragraph.sample.webapp.demo.Parameter .
 
 icodm:org.incodame.paragraph.sample.webapp.demo.Parameter_setDoc_c8fb82f0ebd2_patched
         rdf:type           woc:Method;

@@ -118,7 +118,7 @@ class JavaPatchToRdfTest {
     }
 
     @Test
-    void onlyAddsIsPatchOfConstructorForPatchedConstructors() throws Exception {
+    void onlyAddsIsNewConstructorForAddedConstructors() throws Exception {
         String sourcePath = "/Users/tanguyro/Incodame/paragraph/ParagraphUI/src/main/java/org/incodame/paragraph/sample/webapp/demo/Parameter.java";
         String patchPath = "/Users/tanguyro/Incodame/paragraph/add-parameter-name-constructor.patch";
 
@@ -128,12 +128,13 @@ class JavaPatchToRdfTest {
                 .filter(r -> parameterTypes(r).equals(java.util.Collections.singletonList("java.lang.String")))
                 .findFirst()
                 .orElseThrow(() -> new AssertionError("Missing patched constructor resource"));
-        assertTrue(patchedConstructor.hasProperty(model.createProperty("https://github.com/Incodam/isPatchOfConstructor")));
+        assertTrue(patchedConstructor.hasProperty(model.createProperty("https://github.com/Incodam/isNewConstructor")));
 
         Resource unpatchedConstructor = model.listResourcesWithProperty(RDF.type, model.getResource("http://webofcode.orgConstructor")).toList().stream()
                 .filter(r -> parameterTypes(r).equals(java.util.Arrays.asList("java.lang.String", "java.lang.String")))
                 .findFirst()
                 .orElseThrow(() -> new AssertionError("Missing unpatched constructor resource"));
+        assertTrue(!unpatchedConstructor.hasProperty(model.createProperty("https://github.com/Incodam/isNewConstructor")));
         assertTrue(!unpatchedConstructor.hasProperty(model.createProperty("https://github.com/Incodam/isPatchOfConstructor")));
     }
 
