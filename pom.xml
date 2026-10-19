@@ -26,7 +26,19 @@
           <artifactId>apache-jena-libs</artifactId>
           <type>pom</type>
           <version>4.9.0</version>
-     </dependency>
+      </dependency>
+      <!-- Revapi SPI -->
+      <dependency>
+         <groupId>org.revapi</groupId>
+         <artifactId>revapi-java-spi</artifactId>
+         <version>0.25.1</version>
+      </dependency>
+      <dependency>
+         <groupId>org.revapi</groupId>
+         <artifactId>revapi-java</artifactId>
+         <version>0.28.4</version>
+      </dependency>
+	  <!-- JUnit pour les tests -->
       <dependency>
           <groupId>org.junit.jupiter</groupId>
           <artifactId>junit-jupiter</artifactId>

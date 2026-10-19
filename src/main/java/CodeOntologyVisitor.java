@@ -1,0 +1,195 @@
+import org.apache.jena.rdf.model.Model;
+import org.apache.jena.rdf.model.ModelFactory;
+import org.apache.jena.rdf.model.Property;
+import org.apache.jena.rdf.model.RDFList;
+import org.apache.jena.rdf.model.RDFNode;
+import org.apache.jena.rdf.model.Resource;
+import org.apache.jena.vocabulary.RDF;
+
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
+import java.util.List;
+
+import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.element.ElementKind;
+import javax.lang.model.element.TypeElement;
+import javax.lang.model.element.VariableElement;
+import javax.lang.model.util.SimpleElementVisitor14;
+
+import org.revapi.java.spi.*;
+
+public class CodeOntologyVisitor extends SimpleElementVisitor14<Resource, Void> {
+    
+    private final Model model;
+    private final String wocNs;
+    private final String appNs;
+
+    // Core Classes & Structural Properties
+    private final Resource wocClass;
+    private final Resource wocMethod;
+    private final Resource wocConstructor;
+    private final Resource wocField;
+    private final Property hasMethod;
+    private final Property hasConstructor;
+    private final Property hasField;
+    private final Property hasSimpleName;
+    private final Property parameters;
+    private final Resource parameterClass;
+    private final Property parameterIndex;
+    private final Property parameterType;
+
+    // CodeOntology Visibility Properties & Individuals
+    private final Property hasModifier;
+    private final Resource modifierPublic;
+    private final Resource modifierPrivate;
+    private final Resource modifierProtected;
+
+    public CodeOntologyVisitor(Model model, String wocNs, String appNs) {
+        this.model = model;
+        this.wocNs = wocNs;
+        this.appNs = appNs;
+
+        // Initialize existing elements
+        this.wocClass = model.createResource(wocNs + "Class");
+        this.wocMethod = model.createResource(wocNs + "Method");
+        this.wocConstructor = model.createResource(wocNs + "Constructor");
+        this.wocField = model.createResource(wocNs + "Field");
+        this.hasMethod = model.createProperty(wocNs + "hasMethod");
+        this.hasConstructor = model.createProperty(wocNs + "hasConstructor");
+        this.hasField = model.createProperty(wocNs + "hasField");
+        this.hasSimpleName = model.createProperty(wocNs + "hasSimpleName");
+        this.parameters = model.createProperty(wocNs + "parameters");
+        this.parameterClass = model.createResource(wocNs + "Parameter");
+        this.parameterIndex = model.createProperty(wocNs + "parameterIndex");
+        this.parameterType = model.createProperty(wocNs + "parameterType");
+
+        // Initialize modifier elements
+        this.hasModifier = model.createProperty(wocNs + "hasModifier");
+        this.modifierPublic = model.createResource(wocNs + "Public");
+        this.modifierPrivate = model.createResource(wocNs + "Private");
+        this.modifierProtected = model.createResource(wocNs + "Protected");
+    }
+
+    /**
+     * Helper method to map javax.lang.model Modifiers to CodeOntology URIs
+     */
+    private void applyVisibilityModifiers(javax.lang.model.element.Element e, Resource resource) {
+        java.util.Set<javax.lang.model.element.Modifier> modifiers = e.getModifiers();
+
+        if (modifiers.contains(javax.lang.model.element.Modifier.PUBLIC)) {
+            resource.addProperty(hasModifier, modifierPublic);
+        } else if (modifiers.contains(javax.lang.model.element.Modifier.PRIVATE)) {
+            resource.addProperty(hasModifier, modifierPrivate);
+        } else if (modifiers.contains(javax.lang.model.element.Modifier.PROTECTED)) {
+            resource.addProperty(hasModifier, modifierProtected);
+        } 
+        // Note: Package-private / default visibility typically omits the modifier property in WOC
+    }
+
+    @Override
+    public Resource visitType(TypeElement e, Void p) {
+        String qName = e.getQualifiedName().toString();
+        Resource classRes = model.createResource(appNs + qName)
+                .addProperty(RDF.type, wocClass)
+                .addProperty(hasSimpleName, e.getSimpleName().toString());
+
+        // Extract modifier for the class itself
+        applyVisibilityModifiers(e, classRes);
+
+        for (javax.lang.model.element.Element enclosed : e.getEnclosedElements()) {
+            Resource childRes = enclosed.accept(this, null);
+            if (childRes != null) {
+                if (enclosed instanceof ExecutableElement) {
+                    ExecutableElement executable = (ExecutableElement) enclosed;
+                    classRes.addProperty(
+                            executable.getKind() == ElementKind.CONSTRUCTOR ? hasConstructor : hasMethod,
+                            childRes);
+                } else if (enclosed instanceof VariableElement) {
+                    classRes.addProperty(hasField, childRes);
+                }
+            }
+        }
+        return classRes;
+    }
+
+    @Override
+    public Resource visitExecutable(ExecutableElement e, Void p) {
+        TypeElement parentClass = (TypeElement) e.getEnclosingElement();
+        boolean constructor = e.getKind() == ElementKind.CONSTRUCTOR;
+        String memberName = constructor ? "constructor" : e.getSimpleName().toString();
+        String memberUri = buildMemberUri(parentClass, e, memberName);
+
+        Resource methodRes = model.createResource(memberUri)
+                .addProperty(RDF.type, constructor ? wocConstructor : wocMethod)
+                .addProperty(hasSimpleName, e.getSimpleName().toString())
+                .addProperty(parameters, createParameterList(e));
+        
+        // Extract modifier for the method
+        applyVisibilityModifiers(e, methodRes);
+        
+        return methodRes;
+    }
+
+    private RDFList createParameterList(ExecutableElement member) {
+        List<RDFNode> parameterResources = new ArrayList<>();
+        int index = 0;
+        for (VariableElement parameter : member.getParameters()) {
+            Resource parameterResource = model.createResource()
+                    .addProperty(RDF.type, parameterClass)
+                    .addLiteral(parameterIndex, model.createTypedLiteral(index++))
+                    .addProperty(parameterType, normalizeTypeName(parameter.asType().toString()));
+            parameterResources.add(parameterResource);
+        }
+        return model.createList(parameterResources.iterator());
+    }
+
+    private String buildMemberUri(TypeElement declaringType, ExecutableElement member, String memberName) {
+        String qualifiedType = declaringType.getQualifiedName().toString();
+        List<String> parameterTypes = new ArrayList<>();
+        for (VariableElement parameter : member.getParameters()) {
+            parameterTypes.add(normalizeTypeName(parameter.asType().toString()));
+        }
+        String signature = qualifiedType + "#" + memberName + "(" + String.join(",", parameterTypes) + ")";
+
+        try {
+            byte[] digest = MessageDigest.getInstance("SHA-256")
+                    .digest(signature.getBytes(StandardCharsets.UTF_8));
+            StringBuilder hash = new StringBuilder();
+            for (int index = 0; index < 6; index++) {
+                hash.append(String.format("%02x", digest[index]));
+            }
+            return appNs + qualifiedType + "_" + memberName + "_" + hash + "_stable";
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 is unavailable", e);
+        }
+    }
+
+    private String normalizeTypeName(String typeName) {
+        int genericStart = typeName.indexOf('<');
+        if (genericStart >= 0) {
+            String suffix = typeName.substring(typeName.lastIndexOf('>') + 1);
+            return (typeName.substring(0, genericStart) + suffix).trim();
+        }
+        return typeName;
+    }
+
+    @Override
+    public Resource visitVariable(VariableElement e, Void p) {
+        if (e.getKind().isField()) {
+            TypeElement parentClass = (TypeElement) e.getEnclosingElement();
+            String fieldUri = appNs + parentClass.getQualifiedName().toString() + "." + e.getSimpleName().toString();
+            
+            Resource fieldRes = model.createResource(fieldUri)
+                    .addProperty(RDF.type, wocField)
+                    .addProperty(hasSimpleName, e.getSimpleName().toString());
+            
+            // Extract modifier for the field
+            applyVisibilityModifiers(e, fieldRes);
+            
+            return fieldRes;
+        }
+        return null;
+    }
+}
