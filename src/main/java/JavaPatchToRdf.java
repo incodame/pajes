@@ -97,6 +97,14 @@ public class JavaPatchToRdf {
             return "";
         }
         String trimmed = typeName.trim();
+        // Patch declarations keep generics/varargs while Spoon erases them, so align both forms
+        int genericStart = trimmed.indexOf('<');
+        if (genericStart >= 0) {
+            int genericEnd = trimmed.lastIndexOf('>');
+            String suffix = genericEnd > genericStart ? trimmed.substring(genericEnd + 1) : "";
+            trimmed = (trimmed.substring(0, genericStart) + suffix).trim();
+        }
+        trimmed = trimmed.replace("...", "[]");
         int lastDot = trimmed.lastIndexOf('.');
         return lastDot >= 0 ? trimmed.substring(lastDot + 1) : trimmed;
     }
@@ -390,6 +398,8 @@ public class JavaPatchToRdf {
 
         Property exIsPatchOfMethod = model.createProperty(EX_NS + "isPatchOfMethod");
         Property exIsPatchOfConstructor = model.createProperty(EX_NS + "isPatchOfConstructor");
+        Property exIsNewMethod = model.createProperty(EX_NS + "isNewMethod");
+        Property exIsNewConstructor = model.createProperty(EX_NS + "isNewConstructor");
 
         Launcher launcher = new Launcher();
         launcher.getEnvironment().setNoClasspath(true);
@@ -427,17 +437,22 @@ public class JavaPatchToRdf {
                             .addProperty(wocHasModifier, visibility)
                             .addProperty(wocHasReturnType, method.getType().getQualifiedName());
 
-                        if (isPatchedMethod(method, addedSignatures, removedSignatures)) {
-                            List<String> oldSignatureTypes = sourceMatchesRemovedSignature ? normalizedParameterTypes
+                    if (isPatchedMethod(method, addedSignatures, removedSignatures)) {
+                        List<String> oldSignatureTypes = sourceMatchesRemovedSignature ? normalizedParameterTypes
                                     : findClosestPatchParameterTypes(removedSignatures,
                                             method.getSimpleName(), normalizedParameterTypes);
-                            List<String> oldTypes = oldSignatureTypes == null ? parameterTypes
+                        List<String> oldTypes = oldSignatureTypes == null ? parameterTypes
                                     : resolvePatchParameterTypes(type, oldSignatureTypes);
-                        patchedMethodRes.addProperty(exIsPatchOfMethod,
-                            model.createResource(buildMemberURI(fqcn, method.getSimpleName(), oldTypes, "stable")));
+                        // An unchanged signature means no stable counterpart exists: the method is new
+                        if (oldTypes.equals(parameterTypes)) {
+                            patchedMethodRes.addProperty(exIsNewMethod, classResource);
+                        } else {
+                            patchedMethodRes.addProperty(exIsPatchOfMethod,
+                                model.createResource(buildMemberURI(fqcn, method.getSimpleName(), oldTypes, "stable")));
+                        }
                     }
 
-                        patchedMethodRes.addProperty(wocParameters,
+                    patchedMethodRes.addProperty(wocParameters,
                             createParameterList(model, parameterTypes, wocParameterClass, wocParamIndex, wocParamType));
 
                     for (CtTypeReference<? extends Throwable> excRef : method.getThrownTypes()) {
@@ -476,8 +491,12 @@ public class JavaPatchToRdf {
                                     type.getSimpleName(), normalizedParameterTypes);
                     List<String> oldTypes = oldSignatureTypes == null ? parameterTypes
                             : resolvePatchParameterTypes(type, oldSignatureTypes);
-                    constructorRes.addProperty(exIsPatchOfConstructor, model.createResource(
-                        buildMemberURI(fqcn, "constructor", oldTypes, "stable")));
+                    if (oldTypes.equals(parameterTypes)) {
+                        constructorRes.addProperty(exIsNewConstructor, classResource);
+                    } else {
+                        constructorRes.addProperty(exIsPatchOfConstructor, 
+                            model.createResource(buildMemberURI(fqcn, "constructor", oldTypes, "stable")));
+                    }
                 }
 
                 classResource.addProperty(wocHasConstructor, constructorRes);
@@ -523,8 +542,7 @@ public class JavaPatchToRdf {
                         .addProperty(RDF.type, wocConstructorClass)
                         .addProperty(wocName, "<init>")
                         .addProperty(wocHasModifier, addedConstructor.getValue())
-                        .addProperty(exIsPatchOfConstructor, model.createResource(
-                            buildMemberURI(fqcn, "constructor", qualifiedParameterTypes, "stable")))
+                        .addProperty(exIsNewConstructor, classResource)
                         .addProperty(wocParameters,
                             createParameterList(model, qualifiedParameterTypes, wocParameterClass, wocParamIndex, wocParamType));
                 classResource.addProperty(wocHasConstructor, constructorRes);
