@@ -24,9 +24,15 @@ public class CodeOntologyReporter implements Reporter {
         this.model = ModelFactory.createDefaultModel();
         this.model.setNsPrefix("woc", WOC_NS);
         this.model.setNsPrefix("icodm", APP_NS);
+        this.model.setNsPrefix("owl", "http://www.w3.org/2002/07/owl#");
+        this.model.setNsPrefix("rdfs", "http://www.w3.org/2000/01/rdf-schema#");
         
         // Pass the model and namespaces down into our visitor instance
-        this.visitor = new CodeOntologyVisitor(model, WOC_NS, APP_NS);
+        Object hierarchyData = analysisContext.getData(ClassHierarchy.ANALYSIS_CONTEXT_KEY);
+        if (hierarchyData != null && !(hierarchyData instanceof ClassHierarchy)) {
+            throw new IllegalStateException("Invalid class hierarchy data in Revapi analysis context");
+        }
+        this.visitor = new CodeOntologyVisitor(model, WOC_NS, APP_NS, (ClassHierarchy) hierarchyData);
     }
 
     @Override

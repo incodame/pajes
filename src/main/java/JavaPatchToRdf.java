@@ -371,6 +371,8 @@ public class JavaPatchToRdf {
         model.setNsPrefix("woc", WOC_NS);
         model.setNsPrefix("icodm", EX_NS);
         model.setNsPrefix("rdf", RDF.getURI());
+        model.setNsPrefix("owl", "http://www.w3.org/2002/07/owl#");
+        model.setNsPrefix("rdfs", "http://www.w3.org/2000/01/rdf-schema#");
 
         Set<String> addedSignatures;
         Set<String> removedSignatures;
@@ -386,15 +388,23 @@ public class JavaPatchToRdf {
         Resource wocMethodClass = model.createResource(WOC_NS + "Method");
         Resource wocConstructorClass = model.createResource(WOC_NS + "Constructor");
         Resource wocParameterClass = model.createResource(WOC_NS + "Parameter");
+        Resource wocClassClass = model.createResource(WOC_NS + "Class");
+        Resource owlClass = model.createResource("http://www.w3.org/2002/07/owl#Class");
+        Resource wocPublic = model.createResource(WOC_NS + "Public");
+        Resource wocProtected = model.createResource(WOC_NS + "Protected");
+        Resource wocPrivate = model.createResource(WOC_NS + "Private");
 
         Property wocName = model.createProperty(WOC_NS + "name");
         Property wocHasModifier = model.createProperty(WOC_NS + "hasModifier");
         Property wocHasReturnType = model.createProperty(WOC_NS + "hasReturnType");
         Property wocParameters = model.createProperty(WOC_NS + "parameters");
         Property wocHasConstructor = model.createProperty(WOC_NS + "hasConstructor");
+        Property wocHasMethod = model.createProperty(WOC_NS + "hasMethod");
+        Property wocHasSimpleName = model.createProperty(WOC_NS + "hasSimpleName");
         Property wocParamIndex = model.createProperty(WOC_NS + "parameterIndex");
         Property wocParamType = model.createProperty(WOC_NS + "parameterType");
         Property wocThrowsException = model.createProperty(WOC_NS + "throwsException");
+        Property rdfsSubClassOf = model.createProperty("http://www.w3.org/2000/01/rdf-schema#subClassOf");
 
         Property exIsPatchOfMethod = model.createProperty(EX_NS + "isPatchOfMethod");
         Property exIsPatchOfConstructor = model.createProperty(EX_NS + "isPatchOfConstructor");
@@ -409,7 +419,30 @@ public class JavaPatchToRdf {
 
         for (CtType<?> type : spoonModel.getAllTypes()) {
             String fqcn = type.getQualifiedName();
-            Resource classResource = model.createResource(EX_NS + fqcn);
+            Resource classResource = model.createResource(EX_NS + fqcn)
+                    .addProperty(RDF.type, wocClassClass)
+                    .addProperty(RDF.type, owlClass)
+                    .addProperty(wocHasSimpleName, type.getSimpleName());
+            if (type.isPublic()) {
+                classResource.addProperty(wocHasModifier, wocPublic);
+            } else if (type.isProtected()) {
+                classResource.addProperty(wocHasModifier, wocProtected);
+            } else if (type.isPrivate()) {
+                classResource.addProperty(wocHasModifier, wocPrivate);
+            }
+
+            CtTypeReference<?> superclass = type.getSuperclass();
+            if (superclass != null) {
+                addDirectSupertype(model, classResource, superclass.getQualifiedName(),
+                        owlClass, rdfsSubClassOf);
+            } else if (type.isClass() && !type.isEnum()) {
+                addDirectSupertype(model, classResource, "java.lang.Object",
+                        owlClass, rdfsSubClassOf);
+            }
+            for (CtTypeReference<?> implementedInterface : type.getSuperInterfaces()) {
+                addDirectSupertype(model, classResource, implementedInterface.getQualifiedName(),
+                        owlClass, rdfsSubClassOf);
+            }
 
             for (CtMethod<?> method : type.getMethods()) {
                 if (method.isPublic() || method.isProtected()) {
@@ -436,6 +469,7 @@ public class JavaPatchToRdf {
                             .addProperty(wocName, method.getSimpleName())
                             .addProperty(wocHasModifier, visibility)
                             .addProperty(wocHasReturnType, method.getType().getQualifiedName());
+                    classResource.addProperty(wocHasMethod, patchedMethodRes);
 
                     if (isPatchedMethod(method, addedSignatures, removedSignatures)) {
                         List<String> oldSignatureTypes = sourceMatchesRemovedSignature ? normalizedParameterTypes
@@ -550,6 +584,13 @@ public class JavaPatchToRdf {
         }
 
         return model;
+    }
+
+    private static void addDirectSupertype(Model model, Resource classResource, String supertypeName,
+            Resource owlClass, Property rdfsSubClassOf) {
+        Resource supertypeResource = model.createResource(EX_NS + supertypeName)
+                .addProperty(RDF.type, owlClass);
+        classResource.addProperty(rdfsSubClassOf, supertypeResource);
     }
 
     public static void main(String[] args) {
