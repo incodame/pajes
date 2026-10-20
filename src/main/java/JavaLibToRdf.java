@@ -19,6 +19,7 @@ public class JavaLibToRdf {
             throw new IOException("JAR file does not exist or is not readable: " + jarFile);
         }
 
+        ClassHierarchy classHierarchy = ClassHierarchy.read(jarFile);
         Revapi revapi = Revapi.builder()
                 .withAnalyzersFromThreadContextClassLoader()
                 .withReporters(CodeOntologyReporter.class)
@@ -27,6 +28,7 @@ public class JavaLibToRdf {
         AnalysisContext analysisContext = AnalysisContext.builder(revapi)
                 .withOldAPI(API.of(new FileArchive(jarFile)).build())
                 .withNewAPI(API.of().build())
+                .withData(ClassHierarchy.ANALYSIS_CONTEXT_KEY, classHierarchy)
                 .build();
 
         try (AnalysisResult result = revapi.analyze(analysisContext)) {

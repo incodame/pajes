@@ -81,6 +81,21 @@ class JavaLibToRdfTest {
                 assertTrue(constructors.stream().allMatch(resource -> resource.getURI()
                                 .matches(java.util.regex.Pattern.quote(namespace) + ".+_constructor_[0-9a-f]{12}_stable")),
                         "Constructor URIs should use the stable signature-hash format");
+
+                Resource servletInitializer = model.getResource(
+                        namespace + "org.incodame.paragraph.sample.webapp.demo.ServletInitializer");
+                Resource springBootServletInitializer = model.getResource(
+                        namespace + "org.springframework.boot.web.servlet.support.SpringBootServletInitializer");
+                Property subClassOf = model.createProperty("http://www.w3.org/2000/01/rdf-schema#subClassOf");
+                Resource owlClass = model.getResource("http://www.w3.org/2002/07/owl#Class");
+                assertTrue(servletInitializer.hasProperty(RDF.type, model.getResource("http://webofcode.orgClass")),
+                        "Generated class should retain its Web of Code class type");
+                assertTrue(servletInitializer.hasProperty(RDF.type, owlClass),
+                        "Generated class should also be declared as an OWL class");
+                assertTrue(springBootServletInitializer.hasProperty(RDF.type, owlClass),
+                        "Referenced parent should be declared as an OWL class");
+                assertTrue(servletInitializer.hasProperty(subClassOf, springBootServletInitializer),
+                        "Generated class should link to its direct superclass");
             }
         } finally {
             if (previousOutputFile == null) {

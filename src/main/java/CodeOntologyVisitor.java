@@ -12,10 +12,13 @@ import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.List;
 
+import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
+import javax.lang.model.type.DeclaredType;
+import javax.lang.model.type.TypeKind;
 import javax.lang.model.util.SimpleElementVisitor14;
 
 import org.revapi.java.spi.*;
@@ -25,6 +28,7 @@ public class CodeOntologyVisitor extends SimpleElementVisitor14<Resource, Void> 
     private final Model model;
     private final String wocNs;
     private final String appNs;
+    private final ClassHierarchy classHierarchy;
 
     // Core Classes & Structural Properties
     private final Resource wocClass;
@@ -35,6 +39,8 @@ public class CodeOntologyVisitor extends SimpleElementVisitor14<Resource, Void> 
     private final Property hasConstructor;
     private final Property hasField;
     private final Property hasSimpleName;
+    private final Resource owlClass;
+    private final Property subClassOf;
     private final Property parameters;
     private final Resource parameterClass;
     private final Property parameterIndex;
@@ -47,9 +53,14 @@ public class CodeOntologyVisitor extends SimpleElementVisitor14<Resource, Void> 
     private final Resource modifierProtected;
 
     public CodeOntologyVisitor(Model model, String wocNs, String appNs) {
+        this(model, wocNs, appNs, null);
+    }
+
+    public CodeOntologyVisitor(Model model, String wocNs, String appNs, ClassHierarchy classHierarchy) {
         this.model = model;
         this.wocNs = wocNs;
         this.appNs = appNs;
+        this.classHierarchy = classHierarchy;
 
         // Initialize existing elements
         this.wocClass = model.createResource(wocNs + "Class");
@@ -60,6 +71,8 @@ public class CodeOntologyVisitor extends SimpleElementVisitor14<Resource, Void> 
         this.hasConstructor = model.createProperty(wocNs + "hasConstructor");
         this.hasField = model.createProperty(wocNs + "hasField");
         this.hasSimpleName = model.createProperty(wocNs + "hasSimpleName");
+        this.owlClass = model.createResource("http://www.w3.org/2002/07/owl#Class");
+        this.subClassOf = model.createProperty("http://www.w3.org/2000/01/rdf-schema#subClassOf");
         this.parameters = model.createProperty(wocNs + "parameters");
         this.parameterClass = model.createResource(wocNs + "Parameter");
         this.parameterIndex = model.createProperty(wocNs + "parameterIndex");
@@ -93,7 +106,19 @@ public class CodeOntologyVisitor extends SimpleElementVisitor14<Resource, Void> 
         String qName = e.getQualifiedName().toString();
         Resource classRes = model.createResource(appNs + qName)
                 .addProperty(RDF.type, wocClass)
+                .addProperty(RDF.type, owlClass)
                 .addProperty(hasSimpleName, e.getSimpleName().toString());
+
+        if (classHierarchy != null && classHierarchy.contains(qName)) {
+            for (String supertypeName : classHierarchy.getDirectSupertypes(qName)) {
+                addDirectSupertype(supertypeName, classRes);
+            }
+        } else {
+            addDirectSupertype(e.getSuperclass(), classRes);
+            for (javax.lang.model.type.TypeMirror interfaceType : e.getInterfaces()) {
+                addDirectSupertype(interfaceType, classRes);
+            }
+        }
 
         // Extract modifier for the class itself
         applyVisibilityModifiers(e, classRes);
@@ -112,6 +137,26 @@ public class CodeOntologyVisitor extends SimpleElementVisitor14<Resource, Void> 
             }
         }
         return classRes;
+    }
+
+    private void addDirectSupertype(javax.lang.model.type.TypeMirror type, Resource classResource) {
+        if (type.getKind() != TypeKind.DECLARED) {
+            return;
+        }
+
+        Element supertypeElement = ((DeclaredType) type).asElement();
+        if (!(supertypeElement instanceof TypeElement)) {
+            return;
+        }
+
+        String supertypeName = ((TypeElement) supertypeElement).getQualifiedName().toString();
+        addDirectSupertype(supertypeName, classResource);
+    }
+
+    private void addDirectSupertype(String supertypeName, Resource classResource) {
+        Resource supertypeResource = model.createResource(appNs + supertypeName)
+                .addProperty(RDF.type, owlClass);
+        classResource.addProperty(subClassOf, supertypeResource);
     }
 
     @Override
