@@ -103,6 +103,28 @@ class JavaPatchToRdfTest {
     }
 
     @Test
+    void linksClassesWithoutExplicitSuperclassToObject() throws Exception {
+        Path sourceFile = Files.createTempFile("RootExample", ".java");
+        Files.write(sourceFile, (
+                "package demo;\n" +
+                "public class RootExample {\n" +
+                "    public void run() { }\n" +
+                "}\n"
+        ).getBytes());
+
+        Model model = JavaPatchToRdf.buildModelForFile(sourceFile.toString());
+        Resource rootClass = model.getResource("https://github.com/Incodam/demo.RootExample");
+        Resource objectClass = model.getResource("https://github.com/Incodam/java.lang.Object");
+        Resource owlClass = model.getResource("http://www.w3.org/2002/07/owl#Class");
+        Property subClassOf = model.createProperty("http://www.w3.org/2000/01/rdf-schema#subClassOf");
+
+        assertTrue(rootClass.hasProperty(subClassOf, objectClass),
+                "A class without an explicit superclass implicitly extends java.lang.Object");
+        assertTrue(objectClass.hasProperty(RDF.type, owlClass),
+                "Implicit superclass should be declared as an OWL class");
+    }
+
+    @Test
     void usesCompactDistinctMethodUrisAndOrderedParameterLists() throws Exception {
         Path sourceFile = Files.createTempFile("OverloadedMethodExample", ".java");
         Files.write(sourceFile, (

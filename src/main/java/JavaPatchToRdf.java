@@ -435,6 +435,9 @@ public class JavaPatchToRdf {
             if (superclass != null) {
                 addDirectSupertype(model, classResource, superclass.getQualifiedName(),
                         owlClass, rdfsSubClassOf);
+            } else if (type.isClass() && !type.isEnum()) {
+                addDirectSupertype(model, classResource, "java.lang.Object",
+                        owlClass, rdfsSubClassOf);
             }
             for (CtTypeReference<?> implementedInterface : type.getSuperInterfaces()) {
                 addDirectSupertype(model, classResource, implementedInterface.getQualifiedName(),
