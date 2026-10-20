@@ -1,5 +1,7 @@
 @prefix icodm: <https://github.com/Incodam/> .
+@prefix owl:   <http://www.w3.org/2002/07/owl#> .
 @prefix rdf:   <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
 @prefix woc:   <http://webofcode.org> .
 
 icodm:org.incodame.paragraph.sample.webapp.demo.Parameter_setLoc_f039e92d30a6_patched
@@ -75,13 +77,24 @@ icodm:org.incodame.paragraph.sample.webapp.demo.Parameter_constructor_c9ee8e9b8d
                          ) .
 
 icodm:org.incodame.paragraph.sample.webapp.demo.Parameter
-        woc:hasConstructor  icodm:org.incodame.paragraph.sample.webapp.demo.Parameter_constructor_c9ee8e9b8d61_current , icodm:org.incodame.paragraph.sample.webapp.demo.Parameter_constructor_4fe743ccd8e9_current , icodm:org.incodame.paragraph.sample.webapp.demo.Parameter_constructor_2d7cfce5a519_current .
+        rdf:type            woc:Class , owl:Class;
+        woc:hasConstructor  icodm:org.incodame.paragraph.sample.webapp.demo.Parameter_constructor_4fe743ccd8e9_current , icodm:org.incodame.paragraph.sample.webapp.demo.Parameter_constructor_c9ee8e9b8d61_current , icodm:org.incodame.paragraph.sample.webapp.demo.Parameter_constructor_2d7cfce5a519_current;
+        woc:hasMethod       icodm:org.incodame.paragraph.sample.webapp.demo.Parameter_setValue_c2a21dc02d35_patched , icodm:org.incodame.paragraph.sample.webapp.demo.Parameter_setName_fbc7107f04f8_patched , icodm:org.incodame.paragraph.sample.webapp.demo.Parameter_getLoc_1d3a1e34b5c3_patched , icodm:org.incodame.paragraph.sample.webapp.demo.Parameter_getDoc_606f62516e7d_patched , icodm:org.incodame.paragraph.sample.webapp.demo.Parameter_getName_3c213608e38d_patched , icodm:org.incodame.paragraph.sample.webapp.demo.Parameter_setLoc_f039e92d30a6_patched , icodm:org.incodame.paragraph.sample.webapp.demo.Parameter_getValue_de51e4f5ea88_patched , icodm:org.incodame.paragraph.sample.webapp.demo.Parameter_setDoc_c8fb82f0ebd2_patched;
+        woc:hasModifier     woc:Public;
+        woc:hasSimpleName   "Parameter" .
 
 icodm:org.incodame.paragraph.sample.webapp.demo.Parameter_getLoc_1d3a1e34b5c3_patched
         rdf:type           woc:Method;
         woc:hasModifier    "public";
         woc:hasReturnType  "java.lang.String";
         woc:name           "getLoc";
+        woc:parameters     () .
+
+icodm:org.incodame.paragraph.sample.webapp.demo.Parameter_getValue_de51e4f5ea88_patched
+        rdf:type           woc:Method;
+        woc:hasModifier    "public";
+        woc:hasReturnType  "java.lang.String";
+        woc:name           "getValue";
         woc:parameters     () .
 
 icodm:org.incodame.paragraph.sample.webapp.demo.Parameter_setName_fbc7107f04f8_patched
@@ -94,13 +107,6 @@ icodm:org.incodame.paragraph.sample.webapp.demo.Parameter_setName_fbc7107f04f8_p
                                woc:parameterType   "java.lang.String"
                              ]
                            ) .
-
-icodm:org.incodame.paragraph.sample.webapp.demo.Parameter_getValue_de51e4f5ea88_patched
-        rdf:type           woc:Method;
-        woc:hasModifier    "public";
-        woc:hasReturnType  "java.lang.String";
-        woc:name           "getValue";
-        woc:parameters     () .
 
 icodm:org.incodame.paragraph.sample.webapp.demo.Parameter_constructor_2d7cfce5a519_current
         rdf:type         woc:Constructor;

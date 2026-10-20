@@ -72,6 +72,37 @@ class JavaPatchToRdfTest {
     }
 
     @Test
+    void declaresClassesAsOwlClassesWithDirectInheritance() throws Exception {
+        Path sourceFile = Files.createTempFile("InheritedExample", ".java");
+        Files.write(sourceFile, (
+                "package demo;\n" +
+                "public class Child extends external.Base implements external.Contract {\n" +
+                "    public void update() { }\n" +
+                "}\n"
+        ).getBytes());
+
+        Model model = JavaPatchToRdf.buildModelForFile(sourceFile.toString());
+        String namespace = "https://github.com/Incodam/";
+        Resource child = model.getResource(namespace + "demo.Child");
+        Resource owlClass = model.getResource("http://www.w3.org/2002/07/owl#Class");
+        Resource wocClass = model.getResource("http://webofcode.orgClass");
+        Property subClassOf = model.createProperty("http://www.w3.org/2000/01/rdf-schema#subClassOf");
+
+        assertTrue(child.hasProperty(RDF.type, wocClass));
+        assertTrue(child.hasProperty(RDF.type, owlClass));
+        assertTrue(child.hasProperty(subClassOf,
+                model.getResource(namespace + "external.Base")));
+        assertTrue(child.hasProperty(subClassOf,
+                model.getResource(namespace + "external.Contract")));
+        assertTrue(model.getResource(namespace + "external.Base").hasProperty(RDF.type, owlClass));
+        assertTrue(model.getResource(namespace + "external.Contract").hasProperty(RDF.type, owlClass));
+        assertTrue(!child.hasProperty(subClassOf, model.getResource(namespace + "java.lang.Object")),
+                "Only the declared direct superclass should be linked");
+        assertTrue(child.hasProperty(model.createProperty("http://webofcode.orghasMethod")),
+                "Class should link to its generated method records");
+    }
+
+    @Test
     void usesCompactDistinctMethodUrisAndOrderedParameterLists() throws Exception {
         Path sourceFile = Files.createTempFile("OverloadedMethodExample", ".java");
         Files.write(sourceFile, (
