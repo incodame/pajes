@@ -19,9 +19,11 @@ First build the project using:
 mvn clean package
 ```
 
+### Example of facts generation for an API (refmodule)
+
 To generate RDF facts from a "stable" (released) library JAR using Revapi:
 ```sh
-java -cp target/pajes-0.0.1-SNAPSHOT.jar JavaLibToRdf "/path/to/library.jar"
+java -cp target/pajes-0.0.1-SNAPSHOT.jar org.incodame.pajes.apiref.JavaLibToRdf "/path/to/library.jar"
 ```
 This writes the API surface to `refmodule.ttl` in the current directory.
 
@@ -36,6 +38,14 @@ to assess the impact of the java source changes:
 - which methods or constructors have been changed
 - are the patched classes still backwards compatible with the stable API ?
 - etc...
+
+### Example of facts generation for an API client (client usage report)
+
+In order to generate facts documenting API client usage:
+```sh
+java -cp target/pajes-0.0.1-SNAPSHOT.jar org.incodame.pajes.client.ClientUseToRdf <api package>
+```
+produces a `client-use.ttl` in the current directory.
 
 ## Dependencies
 
