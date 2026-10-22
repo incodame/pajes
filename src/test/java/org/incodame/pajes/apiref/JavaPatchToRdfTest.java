@@ -1,8 +1,10 @@
+package org.incodame.pajes.apiref;
 import org.apache.jena.rdf.model.Model;
 import org.apache.jena.rdf.model.Property;
 import org.apache.jena.rdf.model.RDFList;
 import org.apache.jena.rdf.model.Resource;
 import org.apache.jena.vocabulary.RDF;
+import org.incodame.pajes.apiref.JavaPatchToRdf;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Files;

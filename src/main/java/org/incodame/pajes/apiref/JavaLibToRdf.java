@@ -1,3 +1,4 @@
+package org.incodame.pajes.apiref;
 import java.io.File;
 import java.io.IOException;
 
