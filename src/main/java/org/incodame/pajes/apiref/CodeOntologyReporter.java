@@ -1,10 +1,10 @@
+package org.incodame.pajes.apiref;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.Reader;
 
 import org.apache.jena.rdf.model.Model;
 import org.apache.jena.rdf.model.ModelFactory;
-
 import org.revapi.AnalysisContext;
 import org.revapi.Report;
 import org.revapi.Reporter;

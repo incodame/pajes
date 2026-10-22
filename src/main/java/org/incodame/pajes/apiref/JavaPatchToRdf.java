@@ -1,3 +1,4 @@
+package org.incodame.pajes.apiref;
 import org.apache.jena.rdf.model.*;
 import org.apache.jena.vocabulary.RDF;
 import spoon.Launcher;

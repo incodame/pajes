@@ -1,3 +1,4 @@
+package org.incodame.pajes.apiref;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.InputStream;
@@ -13,6 +14,8 @@ import org.apache.jena.rdf.model.Property;
 import org.apache.jena.rdf.model.RDFList;
 import org.apache.jena.rdf.model.Resource;
 import org.apache.jena.vocabulary.RDF;
+import org.incodame.pajes.apiref.CodeOntologyReporter;
+import org.incodame.pajes.apiref.JavaLibToRdf;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
