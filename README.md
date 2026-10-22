@@ -23,9 +23,10 @@ mvn clean package
 
 To generate RDF facts from a "stable" (released) library JAR using Revapi:
 ```sh
-java -cp target/pajes-0.0.1-SNAPSHOT.jar org.incodame.pajes.apiref.JavaLibToRdf "/path/to/library.jar"
+java -cp target/pajes-0.0.1-SNAPSHOT.jar org.incodame.pajes.apiref.JavaLibToRdf "/path/to/library.jar" "1.2.3"
 ```
-This writes the API surface to `refmodule.ttl` in the current directory.
+This writes the API surface to `refmodule-1.2.3.ttl` in the current directory. The
+version is also recorded as `icodm:applFor` on the generated API resources.
 
 To generate RDF facts about a patched java class using Spoon:
 ```sh

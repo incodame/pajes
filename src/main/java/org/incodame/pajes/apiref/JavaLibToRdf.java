@@ -11,10 +11,15 @@ import org.revapi.base.FileArchive;
 public class JavaLibToRdf {
 
     public static void main(String[] args) throws Exception {
-        if (args.length != 1) {
-            throw new IllegalArgumentException("Usage: JavaLibToRdf <jar-file>");
+        if (args.length != 2) {
+            throw new IllegalArgumentException("Usage: JavaLibToRdf <jar-file> <version>");
         }
 
+        String version = args[1].trim();
+        if (!version.matches("\\d+(\\.\\d+)*")) {
+            throw new IllegalArgumentException("Invalid version format: " + version);
+        }
+        
         File jarFile = new File(args[0]);
         if (!jarFile.isFile() || !jarFile.canRead()) {
             throw new IOException("JAR file does not exist or is not readable: " + jarFile);
@@ -30,6 +35,7 @@ public class JavaLibToRdf {
                 .withOldAPI(API.of(new FileArchive(jarFile)).build())
                 .withNewAPI(API.of().build())
                 .withData(ClassHierarchy.ANALYSIS_CONTEXT_KEY, classHierarchy)
+                .withData(CodeOntologyReporter.VERSION_CONTEXT_KEY, version)
                 .build();
 
         try (AnalysisResult result = revapi.analyze(analysisContext)) {

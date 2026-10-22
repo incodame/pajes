@@ -1,4 +1,7 @@
 package org.incodame.pajes.apiref;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.InputStream;
@@ -14,8 +17,6 @@ import org.apache.jena.rdf.model.Property;
 import org.apache.jena.rdf.model.RDFList;
 import org.apache.jena.rdf.model.Resource;
 import org.apache.jena.vocabulary.RDF;
-import org.incodame.pajes.apiref.CodeOntologyReporter;
-import org.incodame.pajes.apiref.JavaLibToRdf;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -34,14 +35,18 @@ class JavaLibToRdfTest {
     void generatesRdfRecordsFromSampleJar(@TempDir Path tempDir) throws Exception {
         assertTrue(Files.isReadable(SAMPLE_JAR), "Sample JAR must be readable: " + SAMPLE_JAR);
 
-        Path outputFile = tempDir.resolve("api-surface.ttl");
+        String version = "1.2.3";
+        Path outputFile = tempDir.resolve("refmodule-" + version + ".ttl");
         String previousOutputFile = System.getProperty(CodeOntologyReporter.OUTPUT_FILE_PROPERTY);
-        System.setProperty(CodeOntologyReporter.OUTPUT_FILE_PROPERTY, outputFile.toString());
+        String previousOutputDirectory = System.getProperty(CodeOntologyReporter.OUTPUT_DIRECTORY_PROPERTY);
+        System.clearProperty(CodeOntologyReporter.OUTPUT_FILE_PROPERTY);
+        System.setProperty(CodeOntologyReporter.OUTPUT_DIRECTORY_PROPERTY, tempDir.toString());
 
         try {
-            JavaLibToRdf.main(new String[] { SAMPLE_JAR.toString() });
+            JavaLibToRdf.main(new String[] { SAMPLE_JAR.toString(), version });
 
-            assertTrue(Files.isRegularFile(outputFile), "Reporter should create its Turtle output");
+            assertTrue(Files.isRegularFile(outputFile),
+                    "Reporter should include the version in its Turtle output filename");
             try (InputStream input = Files.newInputStream(outputFile)) {
                 Model model = ModelFactory.createDefaultModel();
                 model.read(input, outputFile.toUri().toString(), "TURTLE");
@@ -50,11 +55,23 @@ class JavaLibToRdfTest {
                 String namespace = "https://github.com/Incodam/";
                 Resource methodType = model.getResource("http://webofcode.orgMethod");
                 Resource constructorType = model.getResource("http://webofcode.orgConstructor");
+                Resource classType = model.getResource("http://webofcode.orgClass");
+                Resource fieldType = model.getResource("http://webofcode.orgField");
                 java.util.List<Resource> methods = model.listResourcesWithProperty(RDF.type, methodType).toList();
                 java.util.List<Resource> constructors = model.listResourcesWithProperty(RDF.type, constructorType).toList();
+                java.util.List<Resource> classes = model.listResourcesWithProperty(RDF.type, classType).toList();
+                java.util.List<Resource> fields = model.listResourcesWithProperty(RDF.type, fieldType).toList();
 
                 assertTrue(!methods.isEmpty(), "Reporter should generate method records");
                 assertTrue(!constructors.isEmpty(), "Reporter should generate constructor records");
+                assertFalse(classes.isEmpty(), "Reporter should generate class records");
+                assertFalse(fields.isEmpty(), "Reporter should generate field records");
+                Property applicableFor = model.createProperty(namespace + "applFor");
+                assertVersion(classes, applicableFor, version, "class");
+                assertVersion(fields, applicableFor, version, "field");
+                assertVersion(constructors, applicableFor, version, "constructor");
+                assertVersion(methods, applicableFor, version, "method");
+
                 assertTrue(methods.stream().anyMatch(JavaLibToRdfTest::hasNonEmptyParameterList),
                         "Method records should contain parameter lists");
                 assertTrue(constructors.stream().anyMatch(JavaLibToRdfTest::hasNonEmptyParameterList),
@@ -106,6 +123,19 @@ class JavaLibToRdfTest {
             } else {
                 System.setProperty(CodeOntologyReporter.OUTPUT_FILE_PROPERTY, previousOutputFile);
             }
+            if (previousOutputDirectory == null) {
+                System.clearProperty(CodeOntologyReporter.OUTPUT_DIRECTORY_PROPERTY);
+            } else {
+                System.setProperty(CodeOntologyReporter.OUTPUT_DIRECTORY_PROPERTY, previousOutputDirectory);
+            }
         }
+    }
+
+    private static void assertVersion(List<Resource> resources, Property applicableFor,
+            String version, String recordType) {
+        assertFalse(resources.isEmpty(), "Reporter should generate " + recordType + " records");
+        assertTrue(resources.stream().allMatch(resource -> resource.hasProperty(applicableFor)
+                        && version.equals(resource.getProperty(applicableFor).getString())),
+                "Every " + recordType + " record should include applFor " + version);
     }
 }
