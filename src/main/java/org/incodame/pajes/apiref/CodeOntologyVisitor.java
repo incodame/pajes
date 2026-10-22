@@ -30,6 +30,7 @@ public class CodeOntologyVisitor extends SimpleElementVisitor14<Resource, Void> 
     private final String wocNs;
     private final String appNs;
     private final ClassHierarchy classHierarchy;
+    private final String apiVersion;
 
     // Core Classes & Structural Properties
     private final Resource wocClass;
@@ -54,14 +55,15 @@ public class CodeOntologyVisitor extends SimpleElementVisitor14<Resource, Void> 
     private final Resource modifierProtected;
 
     public CodeOntologyVisitor(Model model, String wocNs, String appNs) {
-        this(model, wocNs, appNs, null);
+        this(model, wocNs, appNs, null, null);
     }
 
-    public CodeOntologyVisitor(Model model, String wocNs, String appNs, ClassHierarchy classHierarchy) {
+    public CodeOntologyVisitor(Model model, String wocNs, String appNs, ClassHierarchy classHierarchy, String apiVersion) {
         this.model = model;
         this.wocNs = wocNs;
         this.appNs = appNs;
         this.classHierarchy = classHierarchy;
+        this.apiVersion = apiVersion;
 
         // Initialize existing elements
         this.wocClass = model.createResource(wocNs + "Class");
@@ -84,6 +86,13 @@ public class CodeOntologyVisitor extends SimpleElementVisitor14<Resource, Void> 
         this.modifierPublic = model.createResource(wocNs + "Public");
         this.modifierPrivate = model.createResource(wocNs + "Private");
         this.modifierProtected = model.createResource(wocNs + "Protected");
+    }
+
+    private void applyVersion(Resource resource) {
+        if (apiVersion != null && !apiVersion.isBlank()) {
+            Property applicableFor = model.createProperty(appNs + "applFor");
+            resource.addProperty(applicableFor, apiVersion);
+        }
     }
 
     /**
@@ -109,6 +118,8 @@ public class CodeOntologyVisitor extends SimpleElementVisitor14<Resource, Void> 
                 .addProperty(RDF.type, wocClass)
                 .addProperty(RDF.type, owlClass)
                 .addProperty(hasSimpleName, e.getSimpleName().toString());
+
+        applyVersion(classRes);        
 
         if (classHierarchy != null && classHierarchy.contains(qName)) {
             for (String supertypeName : classHierarchy.getDirectSupertypes(qName)) {
@@ -169,9 +180,13 @@ public class CodeOntologyVisitor extends SimpleElementVisitor14<Resource, Void> 
 
         Resource methodRes = model.createResource(memberUri)
                 .addProperty(RDF.type, constructor ? wocConstructor : wocMethod)
-                .addProperty(hasSimpleName, e.getSimpleName().toString())
-                .addProperty(parameters, createParameterList(e));
+                .addProperty(hasSimpleName, e.getSimpleName().toString());
+        if (!methodRes.hasProperty(parameters)) {        
+                methodRes.addProperty(parameters, createParameterList(e));
+        }
         
+        applyVersion(methodRes);
+
         // Extract modifier for the method
         applyVisibilityModifiers(e, methodRes);
         
@@ -206,7 +221,8 @@ public class CodeOntologyVisitor extends SimpleElementVisitor14<Resource, Void> 
             for (int index = 0; index < 6; index++) {
                 hash.append(String.format("%02x", digest[index]));
             }
-            return appNs + qualifiedType + "_" + memberName + "_" + hash + "_stable";
+            String uriMemberName = memberName.equals("<clinit>") ? "staticInitializer" : memberName;
+            return appNs + qualifiedType + "_" + uriMemberName + "_" + hash + "_stable";
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException("SHA-256 is unavailable", e);
         }
@@ -230,6 +246,8 @@ public class CodeOntologyVisitor extends SimpleElementVisitor14<Resource, Void> 
             Resource fieldRes = model.createResource(fieldUri)
                     .addProperty(RDF.type, wocField)
                     .addProperty(hasSimpleName, e.getSimpleName().toString());
+
+            applyVersion(fieldRes);
             
             // Extract modifier for the field
             applyVisibilityModifiers(e, fieldRes);
