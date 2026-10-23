@@ -1,0 +1,17 @@
+@prefix icodm: <https://github.com/Incodam/> .
+@prefix woc:   <http://webofcode.org> .
+
+icodm:org.incodame.pajes.apiref.JavaPatchToRdf
+        woc:calls  icodm:org.apache.jena.rdf.model.Model_write_4a0704811d3b_stable , icodm:org.apache.jena.rdf.model.Resource_addProperty_dd51bdb9c2e3_stable , icodm:org.apache.jena.rdf.model.Model_createResource_08dd8f5d5f48_stable , icodm:org.apache.jena.rdf.model.ModelCon_createTypedLiteral_e849c5806614_stable , icodm:org.apache.jena.rdf.model.ModelFactory_createDefaultModel_8fa10a9fce3f_stable , icodm:org.apache.jena.rdf.model.ModelCon_createProperty_e04c9b186dd9_stable , icodm:org.apache.jena.rdf.model.Model_setNsPrefix_bea38db0530e_stable , icodm:org.apache.jena.rdf.model.Resource_addProperty_877b2aa90db3_stable , icodm:org.apache.jena.rdf.model.Model_createList_690c5e31c73e_stable , icodm:org.apache.jena.rdf.model.Model_createResource_be3649c9050d_stable .
+
+icodm:org.incodame.pajes.client.ClientUseToRdf
+        woc:calls  icodm:org.apache.jena.rdf.model.Model_size_fe3e41004f80_stable , icodm:org.apache.jena.rdf.model.Model_write_2031d85c99f0_stable .
+
+icodm:org.incodame.pajes.apiref.CodeOntologyReporter
+        woc:calls  icodm:org.apache.jena.rdf.model.Model_write_2031d85c99f0_stable , icodm:org.apache.jena.rdf.model.Model_setNsPrefix_bea38db0530e_stable , icodm:org.apache.jena.rdf.model.ModelFactory_createDefaultModel_8fa10a9fce3f_stable .
+
+icodm:org.incodame.pajes.apiref.CodeOntologyVisitor
+        woc:calls  icodm:org.apache.jena.rdf.model.Model_createList_690c5e31c73e_stable , icodm:org.apache.jena.rdf.model.Resource_addLiteral_a3f10fe4dc83_stable , icodm:org.apache.jena.rdf.model.ModelCon_createTypedLiteral_e849c5806614_stable , icodm:org.apache.jena.rdf.model.Model_createResource_be3649c9050d_stable , icodm:org.apache.jena.rdf.model.Resource_hasProperty_7e07692ab19a_stable , icodm:org.apache.jena.rdf.model.Resource_addProperty_dd51bdb9c2e3_stable , icodm:org.apache.jena.rdf.model.Resource_addProperty_877b2aa90db3_stable , icodm:org.apache.jena.rdf.model.ModelCon_createProperty_e04c9b186dd9_stable , icodm:org.apache.jena.rdf.model.Model_createResource_08dd8f5d5f48_stable .
+
+icodm:org.incodame.pajes.client.ClientUseProcessor
+        woc:calls  icodm:org.apache.jena.rdf.model.Resource_addProperty_dd51bdb9c2e3_stable , icodm:org.apache.jena.rdf.model.Model_createResource_08dd8f5d5f48_stable , icodm:org.apache.jena.rdf.model.Model_setNsPrefix_bea38db0530e_stable , icodm:org.apache.jena.rdf.model.ModelCon_createProperty_e04c9b186dd9_stable , icodm:org.apache.jena.rdf.model.ModelFactory_createDefaultModel_8fa10a9fce3f_stable .

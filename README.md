@@ -44,9 +44,25 @@ to assess the impact of the java source changes:
 
 In order to generate facts documenting API client usage:
 ```sh
-java -cp target/pajes-0.0.1-SNAPSHOT.jar org.incodame.pajes.client.ClientUseToRdf <api package>
+java -cp target/pajes-0.0.1-SNAPSHOT.jar org.incodame.pajes.client.ClientUseToRdf <client-module-path> <target-package>
 ```
 produces a `client-use.ttl` in the current directory.
+
+Example:
+```sh
+java -cp target/pajes-0.0.1-SNAPSHOT.jar org.incodame.pajes.client.ClientUseToRdf /home/of/pajes "org.apache.jena.rdf.model"
+Starting client usage analysis for module /home/of/pajes and target package org.apache.jena.rdf.model
+Starting Spoon analysis; compiler diagnostics: client-use-errors.log
+RDF analysis report generated: client-use.ttl (29 triples)
+```
+
+`ClientUseToRdf` uses Spoon with `ClientUseCompiler` to compile and analyze client
+sources. The compiler uses the resolved maven project's classpath, so client code can use
+Jena and other project dependencies.
+
+`ClientUseCompiler` writes JDT compiler diagnostics to `client-use-errors.log`;
+compiler errors are reported because they can make the generated client-use RDF
+incomplete.
 
 ## Dependencies
 

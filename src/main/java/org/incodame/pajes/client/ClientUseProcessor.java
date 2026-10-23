@@ -4,11 +4,15 @@ import org.apache.jena.rdf.model.Model;
 import org.apache.jena.rdf.model.ModelFactory;
 import org.apache.jena.rdf.model.Property;
 import org.apache.jena.rdf.model.Resource;
+
+import java.util.List;
+
 import spoon.processing.AbstractProcessor;
 import spoon.reflect.code.CtConstructorCall;
 import spoon.reflect.code.CtInvocation;
 import spoon.reflect.declaration.CtClass;
 import spoon.reflect.declaration.CtElement;
+import spoon.reflect.declaration.CtExecutable;
 import spoon.reflect.reference.CtExecutableReference;
 import spoon.reflect.reference.CtTypeReference;
 
@@ -54,7 +58,7 @@ public class ClientUseProcessor extends AbstractProcessor<CtElement> {
                 
                 if (isInTargetPackage(declaringType)) {
                     // Construction de l'identifiant de la méthode (ex: icodm:org.incodame...Parameter_getName..._stable)
-                    String apiMethodUri = ICODM + declaringType + "_" + executableRef.getSimpleName() + "_stable";
+                    String apiMethodUri = buildMemberUri(executableRef); //ICODM + declaringType + "_" + executableRef.getSimpleName() + "_stable";
                     
                     // Récupération de la classe cliente qui effectue l'appel
                     CtClass<?> parentClass = element.getParent(CtClass.class);
@@ -79,7 +83,7 @@ public class ClientUseProcessor extends AbstractProcessor<CtElement> {
                 
                 if (isInTargetPackage(declaringType)) {
                     // Correspondance avec l'identifiant de votre constructeur (ex: ...Parameter_constructor_..._stable)
-                    String apiConstructorUri = ICODM + declaringType + "_constructor_stable";
+                    String apiConstructorUri = buildMemberUri(executableRef); //ICODM + declaringType + "_constructor_stable";
                     
                     CtClass<?> parentClass = element.getParent(CtClass.class);
                     if (parentClass != null) {
@@ -117,5 +121,30 @@ public class ClientUseProcessor extends AbstractProcessor<CtElement> {
 
     private boolean isInTargetPackage(String qualifiedName) {
         return qualifiedName.startsWith(targetPackage + ".");
+    }
+
+    private String buildMemberUri(CtExecutableReference<?> reference) {
+        CtExecutable<?> declaration = reference.getExecutableDeclaration();
+        List<String> parameterTypes = declaration == null
+                ? reference.getParameters().stream()
+                    .map(CtTypeReference::getQualifiedName)
+                    .toList()
+                : declaration.getParameters().stream()
+                    .map(param -> param.getType().getQualifiedName())
+                    .toList();
+        String declaringType = reference.getDeclaringType().getQualifiedName();
+        String memberName = reference.isConstructor() ? "constructor" : reference.getSimpleName();
+        String signature = declaringType + "#" + memberName + "(" + String.join(",", parameterTypes) + ")";
+        try {
+            java.security.MessageDigest md = java.security.MessageDigest.getInstance("SHA-256");
+            byte[] hashBytes = md.digest(signature.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            StringBuilder hash = new StringBuilder();
+            for (int index = 0; index < 6; index++) {
+                hash.append(String.format("%02x", hashBytes[index]));
+            }
+            return ICODM + declaringType + "_" + memberName + "_" + hash + "_stable";
+        } catch (java.security.NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 algorithm not available", e);
+        }
     }
 }
