@@ -1,0 +1,98 @@
+@prefix icodm: <https://github.com/Incodam/> .
+@prefix owl:   <http://www.w3.org/2002/07/owl#> .
+@prefix rdf:   <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix woc:   <http://webofcode.org> .
+@prefix xsd:   <http://www.w3.org/2001/XMLSchema#> .
+
+<https://github.com/Incodam/pajes/ontology>
+    a owl:Ontology ;
+    rdfs:label "Pajes ontology"@en ;
+    rdfs:comment "OWL 2 vocabulary for Pajes Java module, library dependency, API, patch, and client-use RDF data."@en ;
+    owl:versionInfo "1.0" .
+
+#################################################################
+# Classes
+#################################################################
+
+icodm:JavaModule
+    a owl:Class ;
+    rdfs:label "Java module"@en ;
+    rdfs:comment "A Java project module represented in Pajes data."@en .
+
+icodm:JavaSubModule
+    a owl:Class ;
+    rdfs:label "Java submodule"@en ;
+    rdfs:comment "A Java submodule contained in a Java module."@en ;
+    rdfs:subClassOf woc:Package .
+
+icodm:JavaLibrary
+    a owl:Class ;
+    rdfs:label "Java library"@en ;
+    rdfs:comment "A Java library or package used as a dependency target."@en ;
+    rdfs:subClassOf woc:Package .
+
+icodm:LibraryDependency
+    a owl:Class ;
+    rdfs:label "Library dependency"@en ;
+    rdfs:comment "A versioned dependency on a Java library for a target package and branch."@en .
+
+#################################################################
+# Object properties
+#################################################################
+
+icodm:hasSubModule
+    a owl:ObjectProperty ;
+    rdfs:label "has submodule"@en ;
+    rdfs:domain icodm:JavaModule ;
+    rdfs:range icodm:JavaSubModule .
+
+icodm:hasDependency
+    a owl:ObjectProperty ;
+    rdfs:label "has dependency"@en ;
+    rdfs:domain icodm:JavaSubModule ;
+    rdfs:range icodm:LibraryDependency .
+
+icodm:targetPackage
+    a owl:ObjectProperty ;
+    rdfs:label "target package"@en ;
+    rdfs:comment "The Java package supplied by the dependency."@en ;
+    rdfs:domain icodm:LibraryDependency ;
+    rdfs:range woc:Package .
+
+icodm:isNewConstructor
+    a owl:ObjectProperty ;
+    rdfs:label "is new constructor of"@en ;
+    rdfs:comment "Links a constructor introduced by a patch to its containing class."@en ;
+    rdfs:domain woc:Constructor ;
+    rdfs:range woc:Class .
+
+icodm:isPatchOfMethod
+    a owl:ObjectProperty ;
+    rdfs:label "is patch of method"@en ;
+    rdfs:comment "Links a patched method record to the corresponding stable method record."@en ;
+    rdfs:domain woc:Method ;
+    rdfs:range woc:Method .
+
+#################################################################
+# Datatype properties
+#################################################################
+
+icodm:applBranch
+    a owl:DatatypeProperty ;
+    rdfs:label "applicable branch"@en ;
+    rdfs:comment "A source-code branch to which a module, dependency, or API record applies."@en ;
+    rdfs:range xsd:string .
+
+icodm:applFor
+    a owl:DatatypeProperty ;
+    rdfs:label "applicable for"@en ;
+    rdfs:comment "The library or API version represented by an API record."@en ;
+    rdfs:range xsd:string .
+
+icodm:targetVersion
+    a owl:DatatypeProperty ;
+    rdfs:label "target version"@en ;
+    rdfs:comment "The resolved version of the target library dependency."@en ;
+    rdfs:domain icodm:LibraryDependency ;
+    rdfs:range xsd:string .
