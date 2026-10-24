@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.File;
+import java.io.StringWriter;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
@@ -17,6 +18,63 @@ import spoon.compiler.Environment;
 import spoon.reflect.factory.Factory;
 
 class ClientUseCompilerTest {
+
+    @Test
+    void associatesAnalyzedClassesWithTheProvidedBranch(@TempDir Path tempDir) throws Exception {
+        Path sourceFile = tempDir.resolve("BranchExample.java");
+        Files.writeString(sourceFile,
+                "package example;\n"
+                        + "public class BranchExample { }\n");
+
+        ClientUseProcessor processor = new ClientUseProcessor("org.apache.jena.rdf.model", "main");
+        Launcher launcher = new Launcher();
+        launcher.getEnvironment().setNoClasspath(true);
+        launcher.addInputResource(sourceFile.toString());
+        launcher.addProcessor(processor);
+        launcher.run();
+
+        String namespace = "https://github.com/Incodam/";
+        org.apache.jena.rdf.model.Resource branchClass = processor.getModel()
+                .getResource(namespace + "example.BranchExample");
+        assertTrue(branchClass.hasProperty(
+                        processor.getModel().createProperty(namespace + "applBranch"), "main"),
+                "Generated client class should retain the selected branch");
+        assertTrue(processor.getClientPackages().contains("example"),
+                "Processor should report analyzed source packages");
+
+        StringWriter turtle = new StringWriter();
+        processor.getModel().write(turtle, "TURTLE");
+        assertTrue(turtle.toString().contains("owl:Class"),
+                "Turtle output should use the owl prefix");
+        assertFalse(turtle.toString().contains("<http://www.w3.org/2002/07/owl#Class>"),
+                "Turtle output should not repeat the full OWL class URI");
+    }
+
+    @Test
+    void handlesAnonymousClassesWithoutPackageMetadata(@TempDir Path tempDir) throws Exception {
+        Path sourceFile = tempDir.resolve("AnonymousExample.java");
+        Files.writeString(sourceFile,
+                "package example;\n"
+                        + "public class AnonymousExample {\n"
+                        + "    public Object create() {\n"
+                        + "        return new Runnable() {\n"
+                        + "            public void run() { }\n"
+                        + "        };\n"
+                        + "    }\n"
+                        + "}\n");
+
+        ClientUseProcessor processor = new ClientUseProcessor("org.apache.jena.rdf.model", "main");
+        Launcher launcher = new Launcher();
+        launcher.getEnvironment().setNoClasspath(true);
+        launcher.addInputResource(sourceFile.toString());
+        launcher.addProcessor(processor);
+        launcher.run();
+
+        assertTrue(processor.getClientPackages().contains("example"),
+                "Named classes should still contribute their package");
+        assertTrue(processor.getModel().size() > 0,
+                "Anonymous classes should be processed without aborting RDF generation");
+    }
 
     @Test
     void compilesGeneratedSourceUsingJenaApiAndWritesDiagnostics(@TempDir Path tempDir) throws Exception {

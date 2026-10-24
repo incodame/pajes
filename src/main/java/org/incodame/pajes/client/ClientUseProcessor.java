@@ -4,8 +4,11 @@ import org.apache.jena.rdf.model.Model;
 import org.apache.jena.rdf.model.ModelFactory;
 import org.apache.jena.rdf.model.Property;
 import org.apache.jena.rdf.model.Resource;
+import org.apache.jena.vocabulary.RDF;
 
 import java.util.List;
+import java.util.LinkedHashSet;
+import java.util.Set;
 
 import spoon.processing.AbstractProcessor;
 import spoon.reflect.code.CtConstructorCall;
@@ -13,12 +16,15 @@ import spoon.reflect.code.CtInvocation;
 import spoon.reflect.declaration.CtClass;
 import spoon.reflect.declaration.CtElement;
 import spoon.reflect.declaration.CtExecutable;
+import spoon.reflect.declaration.CtPackage;
 import spoon.reflect.reference.CtExecutableReference;
 import spoon.reflect.reference.CtTypeReference;
 
 public class ClientUseProcessor extends AbstractProcessor<CtElement> {
 
     private final String targetPackage;
+    private final String branch;
+    private final Set<String> clientPackages = new LinkedHashSet<>();
 
     // Initialisation du modèle Jena et des préfixes graphiques
     private final Model model = ModelFactory.createDefaultModel();
@@ -29,20 +35,30 @@ public class ClientUseProcessor extends AbstractProcessor<CtElement> {
     private final Property wocCalls = model.createProperty(WOC + "calls");
     private final Property wocExtends = model.createProperty(WOC + "extends");
     private final Property wocImplements = model.createProperty(WOC + "implements");
+    private final Property applBranch = model.createProperty(ICODM + "applBranch");
+    private final Resource wocClass = model.createResource(WOC + "Class");
+    private final Resource owlClass = model.createResource("http://www.w3.org/2002/07/owl#Class");
 
-    public ClientUseProcessor(String targetPackage) {
-        if (targetPackage == null || targetPackage.trim().isEmpty()) {
-            throw new IllegalArgumentException("Target package must not be empty");
+    public ClientUseProcessor(String targetPackage, String branch) {
+        if (targetPackage == null || targetPackage.trim().isEmpty()
+                || branch == null || branch.trim().isEmpty()) {
+            throw new IllegalArgumentException("Target package and branch must not be empty");
         }
         this.targetPackage = targetPackage;
+        this.branch = branch;
 
         // Configuration des préfixes pour un affichage propre en Turtle (.ttl)
         model.setNsPrefix("icodm", ICODM);
         model.setNsPrefix("woc", WOC);
+        model.setNsPrefix("owl", "http://www.w3.org/2002/07/owl#");
     }
 
     public Model getModel() {
         return model;
+    }
+
+    public Set<String> getClientPackages() {
+        return java.util.Collections.unmodifiableSet(clientPackages);
     }
 
     @Override
@@ -99,7 +115,7 @@ public class ClientUseProcessor extends AbstractProcessor<CtElement> {
         // 3. Détection de l'Héritage (extends) et des Implémentations (implements)
         else if (element instanceof CtClass<?>) {
             CtClass<?> ctClass = (CtClass<?>) element;
-            Resource clientClassResource = model.createResource(ICODM + ctClass.getQualifiedName());
+            Resource clientClassResource = getClientClassResource(ctClass);
             
             // Vérification de la Superclasse
             CtTypeReference<?> superclass = ctClass.getSuperclass();
@@ -117,6 +133,21 @@ public class ClientUseProcessor extends AbstractProcessor<CtElement> {
             }
 
         }
+    }
+
+    private Resource getClientClassResource(CtClass<?> ctClass) {
+        CtPackage ctPackage = ctClass.getPackage();
+        if (ctPackage == null) {
+            ctPackage = ctClass.getParent(CtPackage.class);
+        }
+        if (ctPackage != null && !ctPackage.getQualifiedName().isEmpty()) {
+            String packageName = ctPackage.getQualifiedName();
+            clientPackages.add(packageName);
+        }
+        return model.createResource(ICODM + ctClass.getQualifiedName())
+                .addProperty(RDF.type, owlClass)
+                .addProperty(RDF.type, wocClass)
+                .addProperty(applBranch, branch);
     }
 
     private boolean isInTargetPackage(String qualifiedName) {

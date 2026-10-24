@@ -2,6 +2,7 @@ package org.incodame.pajes.apiref;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.InputStream;
@@ -30,6 +31,15 @@ class JavaLibToRdfTest {
 
     private static final Path SAMPLE_JAR = Paths.get(
             "/Users/tanguyro/Incodame/paragraph/ParagraphUI/target/paragraph-ui-0.0.1-SNAPSHOT-classes.jar");
+
+    @Test
+    void rejectsIncorrectArgumentCount() {
+        assertThrows(IllegalArgumentException.class, () -> JavaLibToRdf.main(new String[0]));
+        assertThrows(IllegalArgumentException.class,
+                () -> JavaLibToRdf.main(new String[] { SAMPLE_JAR.toString() }));
+        assertThrows(IllegalArgumentException.class,
+                () -> JavaLibToRdf.main(new String[] { SAMPLE_JAR.toString(), "1.2.3", "extra" }));
+    }
 
     @Test
     void generatesRdfRecordsFromSampleJar(@TempDir Path tempDir) throws Exception {

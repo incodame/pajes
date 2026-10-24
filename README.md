@@ -44,21 +44,27 @@ to assess the impact of the java source changes:
 
 In order to generate facts documenting API client usage:
 ```sh
-java -cp target/pajes-0.0.1-SNAPSHOT.jar org.incodame.pajes.client.ClientUseToRdf <client-module-path> <target-package>
+java -cp target/pajes-0.0.1-SNAPSHOT.jar org.incodame.pajes.client.ClientUseToRdf <client-module-path> <branch> <target-package>
 ```
 produces a `client-use.ttl` in the current directory.
 
 Example:
 ```sh
-java -cp target/pajes-0.0.1-SNAPSHOT.jar org.incodame.pajes.client.ClientUseToRdf /home/of/pajes "org.apache.jena.rdf.model"
-Starting client usage analysis for module /home/of/pajes and target package org.apache.jena.rdf.model
+java -cp target/pajes-0.0.1-SNAPSHOT.jar org.incodame.pajes.client.ClientUseToRdf /home/of/pajes main "org.apache.jena.rdf.model"
+Starting client usage analysis for module /home/of/pajes, branch main and target package org.apache.jena.rdf.model
 Starting Spoon analysis; compiler diagnostics: client-use-errors.log
-RDF analysis report generated: client-use.ttl (29 triples)
+Resolved org.apache.jena.rdf.model dependency version 4.10.0
+RDF analysis report generated: client-use.ttl (<triple-count> triples)
 ```
 
 `ClientUseToRdf` uses Spoon with `ClientUseCompiler` to compile and analyze client
 sources. The compiler uses the resolved maven project's classpath, so client code can use
-Jena and other project dependencies.
+Jena and other project dependencies. The target package's dependency version is
+derived from the resolved Maven classpath. The branch, package and resolved version
+identify an `icodm:LibraryDependency`; for this project, Jena resolves to version
+`4.10.0` on `main` and `4.9.0` on branch `1.0.1`.
+Client classes are marked with `icodm:applBranch`, while the generated module and
+submodule records link to the library dependency and its target package/version.
 
 `ClientUseCompiler` writes JDT compiler diagnostics to `client-use-errors.log`;
 compiler errors are reported because they can make the generated client-use RDF
