@@ -27,6 +27,14 @@ import java.util.Set;
 
 public class JavaPatchToRdf {
 
+    private static final Set<String> JAVA_LANG_TYPE_NAMES = Set.of(
+            "Appendable", "AutoCloseable", "Boolean", "Byte", "CharSequence", "Character",
+            "Class", "ClassLoader", "Cloneable", "Comparable", "Double", "Enum", "Error",
+            "Exception", "Float", "Integer", "Iterable", "Long", "Math", "Number", "Object",
+            "Process", "ProcessBuilder", "Record", "Runnable", "RuntimeException", "Short",
+            "StackTraceElement", "String", "StringBuffer", "StringBuilder", "System",
+            "Thread", "Throwable", "Void");
+
     // Espace de noms officiel de CodeOntology
     private static final String WOC_NS = "http://webofcode.org";
     // Espace de noms personnalisé pour votre projet / votre pont logique
@@ -108,6 +116,16 @@ public class JavaPatchToRdf {
         trimmed = trimmed.replace("...", "[]");
         int lastDot = trimmed.lastIndexOf('.');
         return lastDot >= 0 ? trimmed.substring(lastDot + 1) : trimmed;
+    }
+
+    private static String qualifyJavaLangReturnType(String typeName) {
+        int arrayStart = typeName.indexOf('[');
+        String baseType = arrayStart >= 0 ? typeName.substring(0, arrayStart) : typeName;
+        if (!JAVA_LANG_TYPE_NAMES.contains(baseType)) {
+            return typeName;
+        }
+        String arraySuffix = arrayStart >= 0 ? typeName.substring(arrayStart) : "";
+        return "java.lang." + baseType + arraySuffix;
     }
 
     private static String normalizeMethodSignature(String declaration) {
@@ -447,7 +465,7 @@ public class JavaPatchToRdf {
 
             for (CtMethod<?> method : type.getMethods()) {
                 if (method.isPublic() || method.isProtected()) {
-                    String visibility = method.isPublic() ? "public" : "protected";
+                    Resource visibility = method.isPublic() ? wocPublic : wocProtected;
                     List<String> parameterTypes = getParameterTypeNames(method);
                         List<String> normalizedParameterTypes = parameterTypes.stream()
                             .map(JavaPatchToRdf::normalizeTypeName)
@@ -464,12 +482,16 @@ public class JavaPatchToRdf {
                         parameterTypes = resolvePatchParameterTypes(type, addedTypes);
                     }
                     String patchedMethodURI = buildMemberURI(fqcn, method.getSimpleName(), parameterTypes, "patched");
+                    Resource returnTypeResource = model.createResource(
+                            EX_NS + qualifyJavaLangReturnType(
+                                    normalizeTypeName(method.getType().getQualifiedName())))
+                            .addProperty(RDF.type, owlClass);
 
                     Resource patchedMethodRes = model.createResource(patchedMethodURI)
                             .addProperty(RDF.type, wocMethodClass)
                             .addProperty(wocName, method.getSimpleName())
                             .addProperty(wocHasModifier, visibility)
-                            .addProperty(wocHasReturnType, method.getType().getQualifiedName());
+                            .addProperty(wocHasReturnType, returnTypeResource);
                     classResource.addProperty(wocHasMethod, patchedMethodRes);
 
                     if (isPatchedMethod(method, addedSignatures, removedSignatures)) {
@@ -497,7 +519,9 @@ public class JavaPatchToRdf {
             }
 
             for (CtConstructor<?> constructor : type.getElements(new TypeFilter<>(CtConstructor.class))) {
-                String visibility = constructor.isPublic() ? "public" : constructor.isProtected() ? "protected" : constructor.isPrivate() ? "private" : "package-private";
+                Resource visibility = constructor.isPublic() ? wocPublic
+                        : constructor.isProtected() ? wocProtected
+                        : constructor.isPrivate() ? wocPrivate : null;
                 List<String> parameterTypes = getParameterTypeNames(constructor);
                 List<String> normalizedParameterTypes = parameterTypes.stream()
                     .map(JavaPatchToRdf::normalizeTypeName)
@@ -517,8 +541,10 @@ public class JavaPatchToRdf {
 
                 Resource constructorRes = model.createResource(constructorURI)
                         .addProperty(RDF.type, wocConstructorClass)
-                        .addProperty(wocName, constructor.getSimpleName())
-                        .addProperty(wocHasModifier, visibility);
+                        .addProperty(wocName, constructor.getSimpleName());
+                if (visibility != null) {
+                    constructorRes.addProperty(wocHasModifier, visibility);
+                }
 
                 if (isPatchedConstructor(constructor, addedSignatures, removedSignatures)) {
                     List<String> oldSignatureTypes = sourceMatchesRemovedSignature ? normalizedParameterTypes
@@ -576,15 +602,34 @@ public class JavaPatchToRdf {
                 Resource constructorRes = model.createResource(constructorURI)
                         .addProperty(RDF.type, wocConstructorClass)
                         .addProperty(wocName, "<init>")
-                        .addProperty(wocHasModifier, addedConstructor.getValue())
                         .addProperty(exIsNewConstructor, classResource)
                         .addProperty(wocParameters,
                             createParameterList(model, qualifiedParameterTypes, wocParameterClass, wocParamIndex, wocParamType));
+                Resource visibility = modifierResource(model, addedConstructor.getValue());
+                if (visibility != null) {
+                    constructorRes.addProperty(wocHasModifier, visibility);
+                }
                 classResource.addProperty(wocHasConstructor, constructorRes);
             }
         }
 
         return model;
+    }
+
+    private static Resource modifierResource(Model model, String modifier) {
+        if (modifier == null) {
+            return null;
+        }
+        switch (modifier.toLowerCase()) {
+            case "public":
+                return model.createResource(WOC_NS + "Public");
+            case "protected":
+                return model.createResource(WOC_NS + "Protected");
+            case "private":
+                return model.createResource(WOC_NS + "Private");
+            default:
+                return null;
+        }
     }
 
     private static void addDirectSupertype(Model model, Resource classResource, String supertypeName,

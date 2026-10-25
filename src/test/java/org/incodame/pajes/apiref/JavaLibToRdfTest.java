@@ -82,6 +82,21 @@ class JavaLibToRdfTest {
                 assertVersion(constructors, applicableFor, version, "constructor");
                 assertVersion(methods, applicableFor, version, "method");
 
+                Property hasReturnType = model.createProperty("http://webofcode.orghasReturnType");
+                Resource owlClass = model.getResource("http://www.w3.org/2002/07/owl#Class");
+                Property simpleName = model.createProperty("http://webofcode.orghasSimpleName");
+                assertTrue(methods.stream().allMatch(method -> method.hasProperty(hasReturnType)
+                                && method.getProperty(hasReturnType).getObject().isResource()),
+                        "Method return types should be resource-valued hasReturnType properties");
+                Resource getter = methods.stream()
+                        .filter(method -> method.hasProperty(simpleName, "getName"))
+                        .findFirst()
+                        .orElseThrow(() -> new AssertionError("Sample JAR should include getName"));
+                Resource getterReturnType = getter.getProperty(hasReturnType).getResource();
+                assertEquals(namespace + "java.lang.String", getterReturnType.getURI());
+                assertTrue(getterReturnType.hasProperty(RDF.type, owlClass),
+                        "Return type resources should be declared as OWL classes");
+
                 assertTrue(methods.stream().anyMatch(JavaLibToRdfTest::hasNonEmptyParameterList),
                         "Method records should contain parameter lists");
                 assertTrue(constructors.stream().anyMatch(JavaLibToRdfTest::hasNonEmptyParameterList),
@@ -117,7 +132,6 @@ class JavaLibToRdfTest {
                 Resource springBootServletInitializer = model.getResource(
                         namespace + "org.springframework.boot.web.servlet.support.SpringBootServletInitializer");
                 Property subClassOf = model.createProperty("http://www.w3.org/2000/01/rdf-schema#subClassOf");
-                Resource owlClass = model.getResource("http://www.w3.org/2002/07/owl#Class");
                 assertTrue(servletInitializer.hasProperty(RDF.type, model.getResource("http://webofcode.orgClass")),
                         "Generated class should retain its Web of Code class type");
                 assertTrue(servletInitializer.hasProperty(RDF.type, owlClass),

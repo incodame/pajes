@@ -74,6 +74,13 @@ icodm:isPatchOfMethod
     rdfs:domain woc:Method ;
     rdfs:range woc:Method .
 
+woc:hasReturnType
+    a owl:ObjectProperty ;
+    rdfs:label "has return type"@en ;
+    rdfs:comment "Links a method to the RDF resource representing its Java return type."@en ;
+    rdfs:domain woc:Method ;
+    rdfs:range owl:Class .
+
 #################################################################
 # Datatype properties
 #################################################################
