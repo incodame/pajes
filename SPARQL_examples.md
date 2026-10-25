@@ -186,6 +186,37 @@ stable method IRI. If the client calls the stable method but the patch data does
 not contain an `icodm:isPatchOfMethod` link to that IRI, this query returns no
 row.
 
+## 8. Find methods deleted by a patch
+
+This compares stable methods from the original API data with the patch data.
+For each stable method, it constructs the expected patched IRI by replacing
+the `_stable` suffix with `_patched`. If no method record exists at that exact
+IRI, the query reports the stable method.
+
+```sparql
+PREFIX woc:   <http://webofcode.org>
+
+SELECT DISTINCT ?class ?methodName ?stableMethod
+WHERE {
+  ?class woc:hasMethod ?stableMethod .
+  ?stableMethod a woc:Method ;
+                woc:hasSimpleName ?methodName .
+
+  BIND(IRI(REPLACE(STR(?stableMethod), "_stable$", "_patched"))
+       AS ?sameSignaturePatchedMethod)
+
+  FILTER NOT EXISTS {
+    ?sameSignaturePatchedMethod a woc:Method .
+  }
+}
+ORDER BY ?class ?methodName
+```
+
+This uses only the Pajes method IRI naming convention and does not use
+`icodm:isPatchOfMethod`. It assumes the patch RDF successfully represents the
+full current source; missing or incomplete patch output can otherwise look like
+deleted methods.
+
 ## Dataset notes
 
 - Query 1 and query 6 use the extended client-use proposal in
@@ -194,6 +225,8 @@ row.
   want those branch, dependency-version, and called-method results.
 - Query 7 requires client-use data and patch/API data with matching stable
   method IRIs and parameter records.
+- Query 8 requires both baseline API data and patch data, for example
+  `refmodule-0.0.1.ttl` and `refmodule-patch.ttl`.
 - Queries 2–5 use API or patch statements in `refmodule-0.0.1.ttl` and
   `refmodule-patch.ttl`.
 - Include `owl/pajes.owl` in the index if you also want to query the ontology's

@@ -6,8 +6,8 @@
 
 icodm:org.incodame.paragraph.sample.webapp.demo.Parameter_setLoc_f039e92d30a6_patched
         rdf:type           woc:Method;
-        woc:hasModifier    "public";
-        woc:hasReturnType  "void";
+        woc:hasModifier    woc:Public;
+        woc:hasReturnType  icodm:void;
         woc:name           "setLoc";
         woc:parameters     ( [ rdf:type            woc:Parameter;
                                woc:parameterIndex  "0"^^<http://www.w3.org/2001/XMLSchema#int>;
@@ -17,7 +17,7 @@ icodm:org.incodame.paragraph.sample.webapp.demo.Parameter_setLoc_f039e92d30a6_pa
 
 icodm:org.incodame.paragraph.sample.webapp.demo.Parameter_constructor_4fe743ccd8e9_current
         rdf:type                woc:Constructor;
-        woc:hasModifier         "public";
+        woc:hasModifier         woc:Public;
         woc:name                "<init>";
         woc:parameters          ( [ rdf:type            woc:Parameter;
                                     woc:parameterIndex  "0"^^<http://www.w3.org/2001/XMLSchema#int>;
@@ -28,8 +28,8 @@ icodm:org.incodame.paragraph.sample.webapp.demo.Parameter_constructor_4fe743ccd8
 
 icodm:org.incodame.paragraph.sample.webapp.demo.Parameter_setDoc_2edba0075133_patched
         rdf:type               woc:Method;
-        woc:hasModifier        "public";
-        woc:hasReturnType      "void";
+        woc:hasModifier        woc:Public;
+        woc:hasReturnType      icodm:void;
         woc:name               "setDoc";
         woc:parameters         ( [ rdf:type            woc:Parameter;
                                    woc:parameterIndex  "0"^^<http://www.w3.org/2001/XMLSchema#int>;
@@ -44,15 +44,15 @@ icodm:org.incodame.paragraph.sample.webapp.demo.Parameter_setDoc_2edba0075133_pa
 
 icodm:org.incodame.paragraph.sample.webapp.demo.Parameter_getName_3c213608e38d_patched
         rdf:type           woc:Method;
-        woc:hasModifier    "public";
-        woc:hasReturnType  "java.lang.String";
+        woc:hasModifier    woc:Public;
+        woc:hasReturnType  icodm:java.lang.String;
         woc:name           "getName";
         woc:parameters     () .
 
 icodm:org.incodame.paragraph.sample.webapp.demo.Parameter_setValue_c2a21dc02d35_patched
         rdf:type           woc:Method;
-        woc:hasModifier    "public";
-        woc:hasReturnType  "void";
+        woc:hasModifier    woc:Public;
+        woc:hasReturnType  icodm:void;
         woc:name           "setValue";
         woc:parameters     ( [ rdf:type            woc:Parameter;
                                woc:parameterIndex  "0"^^<http://www.w3.org/2001/XMLSchema#int>;
@@ -60,16 +60,19 @@ icodm:org.incodame.paragraph.sample.webapp.demo.Parameter_setValue_c2a21dc02d35_
                              ]
                            ) .
 
+icodm:java.lang.String
+        rdf:type  owl:Class .
+
 icodm:org.incodame.paragraph.sample.webapp.demo.Parameter_getDoc_606f62516e7d_patched
         rdf:type           woc:Method;
-        woc:hasModifier    "public";
-        woc:hasReturnType  "java.lang.String";
+        woc:hasModifier    woc:Public;
+        woc:hasReturnType  icodm:java.lang.String;
         woc:name           "getDoc";
         woc:parameters     () .
 
 icodm:org.incodame.paragraph.sample.webapp.demo.Parameter_constructor_c9ee8e9b8d61_current
         rdf:type         woc:Constructor;
-        woc:hasModifier  "public";
+        woc:hasModifier  woc:Public;
         woc:name         "<init>";
         woc:parameters   ( [ rdf:type            woc:Parameter;
                              woc:parameterIndex  "0"^^<http://www.w3.org/2001/XMLSchema#int>;
@@ -91,15 +94,15 @@ icodm:org.incodame.paragraph.sample.webapp.demo.Parameter
 
 icodm:org.incodame.paragraph.sample.webapp.demo.Parameter_getLoc_1d3a1e34b5c3_patched
         rdf:type           woc:Method;
-        woc:hasModifier    "public";
-        woc:hasReturnType  "java.lang.String";
+        woc:hasModifier    woc:Public;
+        woc:hasReturnType  icodm:java.lang.String;
         woc:name           "getLoc";
         woc:parameters     () .
 
 icodm:org.incodame.paragraph.sample.webapp.demo.Parameter_setName_fbc7107f04f8_patched
         rdf:type           woc:Method;
-        woc:hasModifier    "public";
-        woc:hasReturnType  "void";
+        woc:hasModifier    woc:Public;
+        woc:hasReturnType  icodm:void;
         woc:name           "setName";
         woc:parameters     ( [ rdf:type            woc:Parameter;
                                woc:parameterIndex  "0"^^<http://www.w3.org/2001/XMLSchema#int>;
@@ -109,16 +112,18 @@ icodm:org.incodame.paragraph.sample.webapp.demo.Parameter_setName_fbc7107f04f8_p
 
 icodm:org.incodame.paragraph.sample.webapp.demo.Parameter_getValue_de51e4f5ea88_patched
         rdf:type           woc:Method;
-        woc:hasModifier    "public";
-        woc:hasReturnType  "java.lang.String";
+        woc:hasModifier    woc:Public;
+        woc:hasReturnType  icodm:java.lang.String;
         woc:name           "getValue";
         woc:parameters     () .
 
 icodm:org.incodame.paragraph.sample.webapp.demo.Parameter_constructor_2d7cfce5a519_current
         rdf:type         woc:Constructor;
-        woc:hasModifier  "public";
+        woc:hasModifier  woc:Public;
         woc:name         "<init>";
         woc:parameters   () .
+
+icodm:void  rdf:type  owl:Class .
 
 icodm:java.lang.Object
         rdf:type  owl:Class .

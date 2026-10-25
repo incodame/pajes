@@ -14,8 +14,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 import javax.lang.model.element.Element;
-import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.ElementKind;
+import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.DeclaredType;
@@ -34,6 +34,7 @@ public class CodeOntologyVisitor extends SimpleElementVisitor14<Resource, Void> 
 
     // Core Classes & Structural Properties
     private final Resource wocClass;
+    private final Resource wocInterface;
     private final Resource wocMethod;
     private final Resource wocConstructor;
     private final Resource wocField;
@@ -41,6 +42,7 @@ public class CodeOntologyVisitor extends SimpleElementVisitor14<Resource, Void> 
     private final Property hasConstructor;
     private final Property hasField;
     private final Property hasSimpleName;
+    private final Property hasReturnType;
     private final Resource owlClass;
     private final Property subClassOf;
     private final Property parameters;
@@ -67,6 +69,7 @@ public class CodeOntologyVisitor extends SimpleElementVisitor14<Resource, Void> 
 
         // Initialize existing elements
         this.wocClass = model.createResource(wocNs + "Class");
+        this.wocInterface = model.createResource(wocNs + "Interface");
         this.wocMethod = model.createResource(wocNs + "Method");
         this.wocConstructor = model.createResource(wocNs + "Constructor");
         this.wocField = model.createResource(wocNs + "Field");
@@ -74,6 +77,7 @@ public class CodeOntologyVisitor extends SimpleElementVisitor14<Resource, Void> 
         this.hasConstructor = model.createProperty(wocNs + "hasConstructor");
         this.hasField = model.createProperty(wocNs + "hasField");
         this.hasSimpleName = model.createProperty(wocNs + "hasSimpleName");
+        this.hasReturnType = model.createProperty(wocNs + "hasReturnType");
         this.owlClass = model.createResource("http://www.w3.org/2002/07/owl#Class");
         this.subClassOf = model.createProperty("http://www.w3.org/2000/01/rdf-schema#subClassOf");
         this.parameters = model.createProperty(wocNs + "parameters");
@@ -118,6 +122,9 @@ public class CodeOntologyVisitor extends SimpleElementVisitor14<Resource, Void> 
                 .addProperty(RDF.type, wocClass)
                 .addProperty(RDF.type, owlClass)
                 .addProperty(hasSimpleName, e.getSimpleName().toString());
+        if (e.getKind() == ElementKind.INTERFACE) {
+            classRes.addProperty(RDF.type, wocInterface);
+        }
 
         applyVersion(classRes);        
 
@@ -181,6 +188,12 @@ public class CodeOntologyVisitor extends SimpleElementVisitor14<Resource, Void> 
         Resource methodRes = model.createResource(memberUri)
                 .addProperty(RDF.type, constructor ? wocConstructor : wocMethod)
                 .addProperty(hasSimpleName, e.getSimpleName().toString());
+        if (!constructor) {
+            String returnTypeName = normalizeTypeName(e.getReturnType().toString());
+            Resource returnTypeResource = model.createResource(appNs + returnTypeName)
+                    .addProperty(RDF.type, owlClass);
+            methodRes.addProperty(hasReturnType, returnTypeResource);
+        }
         if (!methodRes.hasProperty(parameters)) {        
                 methodRes.addProperty(parameters, createParameterList(e));
         }

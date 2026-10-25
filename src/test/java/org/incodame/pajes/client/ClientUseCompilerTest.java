@@ -9,6 +9,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 
+import org.apache.jena.rdf.model.Property;
+import org.apache.jena.vocabulary.RDF;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -48,6 +50,51 @@ class ClientUseCompilerTest {
                 "Turtle output should use the owl prefix");
         assertFalse(turtle.toString().contains("<http://www.w3.org/2002/07/owl#Class>"),
                 "Turtle output should not repeat the full OWL class URI");
+    }
+
+    @Test
+    void recordsTargetApiCallsMadeByClientInterfaceDefaultMethods(@TempDir Path tempDir) throws Exception {
+        Path apiSource = tempDir.resolve("src/org/apache/jena/rdf/model/Api.java");
+        Files.createDirectories(apiSource.getParent());
+        Files.writeString(apiSource,
+                "package org.apache.jena.rdf.model;\n"
+                        + "public class Api {\n"
+                        + "    public static void ping() { }\n"
+                        + "}\n");
+
+        Path clientSource = tempDir.resolve("src/example/ClientContract.java");
+        Files.createDirectories(clientSource.getParent());
+        Files.writeString(clientSource,
+                "package example;\n"
+                        + "import org.apache.jena.rdf.model.Api;\n"
+                        + "public interface ClientContract {\n"
+                        + "    default void invokeApi() { Api.ping(); }\n"
+                        + "}\n");
+
+        ClientUseProcessor processor = new ClientUseProcessor("org.apache.jena.rdf.model", "main");
+        Launcher launcher = new Launcher();
+        launcher.getEnvironment().setComplianceLevel(17);
+        launcher.getEnvironment().setNoClasspath(true);
+        launcher.addInputResource(apiSource.toString());
+        launcher.addInputResource(clientSource.toString());
+        launcher.addProcessor(processor);
+        launcher.run();
+
+        String namespace = "https://github.com/Incodam/";
+        org.apache.jena.rdf.model.Model model = processor.getModel();
+        org.apache.jena.rdf.model.Resource clientInterface = model.getResource(namespace + "example.ClientContract");
+        assertTrue(clientInterface.hasProperty(RDF.type, model.getResource("http://webofcode.orgInterface")));
+        assertTrue(clientInterface.hasProperty(
+                        model.createProperty(namespace + "applBranch"), "main"));
+
+        Property calls = model.createProperty("http://webofcode.orgcalls");
+        assertTrue(clientInterface.listProperties(calls).toList().stream()
+                        .map(statement -> statement.getResource().getURI())
+                        .anyMatch(uri -> uri.startsWith(namespace + "org.apache.jena.rdf.model.Api_ping_")
+                                && uri.endsWith("_stable")),
+                "A call from a default interface method should be attached to its interface component");
+        assertTrue(processor.getClientPackages().contains("example"),
+                "Client interface packages should be included in processor package results");
     }
 
     @Test

@@ -15,6 +15,12 @@
 # Classes
 #################################################################
 
+woc:Interface
+    a owl:Class ;
+    rdfs:label "Java interface"@en ;
+    rdfs:comment "A Java interface declaration represented as a Web of Code class resource."@en ;
+    rdfs:subClassOf woc:Class .
+
 icodm:JavaModule
     a owl:Class ;
     rdfs:label "Java module"@en ;
@@ -73,6 +79,13 @@ icodm:isPatchOfMethod
     rdfs:comment "Links a patched method record to the corresponding stable method record."@en ;
     rdfs:domain woc:Method ;
     rdfs:range woc:Method .
+
+woc:hasReturnType
+    a owl:ObjectProperty ;
+    rdfs:label "has return type"@en ;
+    rdfs:comment "Links a method to the RDF resource representing its Java return type."@en ;
+    rdfs:domain woc:Method ;
+    rdfs:range owl:Class .
 
 #################################################################
 # Datatype properties

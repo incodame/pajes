@@ -12,6 +12,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -44,11 +45,19 @@ class JavaPatchToRdfTest {
         Model model = JavaPatchToRdf.buildModelForFile(sourceFile.toString());
 
         Resource constructorType = model.getResource("http://webofcode.orgConstructor");
-        assertTrue(model.listResourcesWithProperty(RDF.type, constructorType).toSet().size() >= 2);
+        List<Resource> constructors = model.listResourcesWithProperty(RDF.type, constructorType).toList();
+        assertTrue(constructors.size() >= 2);
 
-        Resource constructorResource = model.listResourcesWithProperty(RDF.type, constructorType).nextResource();
-        assertTrue(constructorResource.hasProperty(RDF.type, constructorType));
-        assertTrue(!constructorResource.getURI().contains("<"));
+        Property hasModifier = model.createProperty("http://webofcode.orghasModifier");
+        Resource publicModifier = model.getResource("http://webofcode.orgPublic");
+        Resource protectedModifier = model.getResource("http://webofcode.orgProtected");
+        assertTrue(constructors.stream().anyMatch(constructor ->
+                constructor.hasProperty(hasModifier, publicModifier)));
+        assertTrue(constructors.stream().anyMatch(constructor ->
+                constructor.hasProperty(hasModifier, protectedModifier)));
+        assertTrue(constructors.stream().allMatch(constructor ->
+                constructor.getProperty(hasModifier).getObject().isResource()));
+        assertTrue(constructors.stream().allMatch(constructor -> !constructor.getURI().contains("<")));
     }
 
     @Test
@@ -68,9 +77,30 @@ class JavaPatchToRdfTest {
         Resource methodType = model.getResource("http://webofcode.orgMethod");
         assertTrue(model.listResourcesWithProperty(RDF.type, methodType).toSet().size() >= 2);
 
-        Resource methodResource = model.listResourcesWithProperty(RDF.type, methodType).nextResource();
+        Property methodName = model.createProperty("http://webofcode.orgname");
+        Resource methodResource = model.listResourcesWithProperty(RDF.type, methodType).toList().stream()
+                .filter(method -> method.hasProperty(methodName, "getName"))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("Missing getName method record"));
+        Property hasReturnType = model.createProperty("http://webofcode.orghasReturnType");
         assertTrue(methodResource.hasProperty(RDF.type, methodType));
         assertTrue(methodResource.getURI().startsWith("https://github.com/Incodam/"));
+        assertEquals("https://github.com/Incodam/java.lang.String",
+                methodResource.getProperty(hasReturnType).getResource().getURI(),
+                "Reference return types should be represented as resource links");
+
+        Resource voidMethod = model.listResourcesWithProperty(RDF.type, methodType).toList().stream()
+                .filter(method -> method.hasProperty(methodName, "setName"))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("Missing setName method record"));
+        assertTrue(voidMethod.hasProperty(hasReturnType, model.getResource("https://github.com/Incodam/void")),
+                "Primitive and void return types should also be represented as resources");
+
+        Property hasModifier = model.createProperty("http://webofcode.orghasModifier");
+        assertTrue(methodResource.hasProperty(hasModifier, model.getResource("http://webofcode.orgPublic")));
+        assertTrue(voidMethod.hasProperty(hasModifier, model.getResource("http://webofcode.orgProtected")));
+        assertTrue(methodResource.getProperty(hasModifier).getObject().isResource());
+        assertTrue(voidMethod.getProperty(hasModifier).getObject().isResource());
     }
 
     @Test
@@ -102,6 +132,53 @@ class JavaPatchToRdfTest {
                 "Only the declared direct superclass should be linked");
         assertTrue(child.hasProperty(model.createProperty("http://webofcode.orghasMethod")),
                 "Class should link to its generated method records");
+    }
+
+    @Test
+    void generatesInterfaceAndItsImplicitlyPublicMethods() throws Exception {
+        Path sourceFile = Files.createTempFile("ExampleContract", ".java");
+        Files.write(sourceFile, (
+                "package demo;\n" +
+                "interface ParentContract { void reset(); }\n" +
+                "public interface ExampleContract extends ParentContract {\n" +
+                "    String getName();\n" +
+                "    default void setName(String name) { }\n" +
+                "}\n"
+        ).getBytes());
+
+        Model model = JavaPatchToRdf.buildModelForFile(sourceFile.toString());
+        String namespace = "https://github.com/Incodam/";
+        Resource contract = model.getResource(namespace + "demo.ExampleContract");
+        Resource parentContract = model.getResource(namespace + "demo.ParentContract");
+        Resource wocInterface = model.getResource("http://webofcode.orgInterface");
+        Resource owlClass = model.getResource("http://www.w3.org/2002/07/owl#Class");
+        Property subClassOf = model.createProperty("http://www.w3.org/2000/01/rdf-schema#subClassOf");
+        Property hasMethod = model.createProperty("http://webofcode.orghasMethod");
+        Property hasConstructor = model.createProperty("http://webofcode.orghasConstructor");
+        Property methodName = model.createProperty("http://webofcode.orgname");
+        Property hasModifier = model.createProperty("http://webofcode.orghasModifier");
+        Resource publicModifier = model.getResource("http://webofcode.orgPublic");
+
+        assertTrue(contract.hasProperty(RDF.type, wocInterface));
+        assertTrue(contract.hasProperty(RDF.type, owlClass));
+        assertTrue(contract.hasProperty(subClassOf, parentContract),
+                "Extended interfaces should be represented as direct supertypes");
+        assertTrue(parentContract.hasProperty(RDF.type, wocInterface));
+        assertTrue(contract.hasProperty(hasMethod));
+        assertTrue(!contract.hasProperty(hasConstructor),
+                "Interfaces should not produce constructor records");
+
+        List<Resource> methods = model.listResourcesWithProperty(RDF.type,
+                model.getResource("http://webofcode.orgMethod")).toList();
+        for (String name : List.of("getName", "setName")) {
+            Resource method = methods.stream()
+                    .filter(candidate -> candidate.hasProperty(methodName, name))
+                    .filter(candidate -> candidate.getURI().contains("demo.ExampleContract_"))
+                    .findFirst()
+                    .orElseThrow(() -> new AssertionError("Missing interface method " + name));
+            assertTrue(method.hasProperty(hasModifier, publicModifier),
+                    "Interface methods are implicitly public");
+        }
     }
 
     @Test
