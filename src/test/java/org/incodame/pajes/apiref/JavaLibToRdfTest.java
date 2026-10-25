@@ -9,8 +9,13 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.jar.JarEntry;
+import java.util.jar.JarOutputStream;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import javax.tools.JavaCompiler;
+import javax.tools.ToolProvider;
 
 import org.apache.jena.rdf.model.Model;
 import org.apache.jena.rdf.model.ModelFactory;
@@ -39,6 +44,87 @@ class JavaLibToRdfTest {
                 () -> JavaLibToRdf.main(new String[] { SAMPLE_JAR.toString() }));
         assertThrows(IllegalArgumentException.class,
                 () -> JavaLibToRdf.main(new String[] { SAMPLE_JAR.toString(), "1.2.3", "extra" }));
+    }
+
+    @Test
+    void generatesInterfaceRecordsAndMethodsFromJar(@TempDir Path tempDir) throws Exception {
+        Path sourceFile = tempDir.resolve("src/demo/ExampleContract.java");
+        Files.createDirectories(sourceFile.getParent());
+        Files.writeString(sourceFile, "package demo;\n"
+                + "public interface ExampleContract {\n"
+                + "    String getName();\n"
+                + "    default int count() { return 0; }\n"
+                + "}\n");
+
+        Path classesDirectory = tempDir.resolve("classes");
+        Files.createDirectories(classesDirectory);
+        JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
+        assertTrue(compiler != null, "Tests require a JDK compiler");
+        assertEquals(0, compiler.run(null, null, null,
+                "--release", "17", "-d", classesDirectory.toString(), sourceFile.toString()));
+
+        Path jarFile = tempDir.resolve("interface-fixture.jar");
+        try (JarOutputStream jar = new JarOutputStream(Files.newOutputStream(jarFile));
+                Stream<Path> classFiles = Files.walk(classesDirectory)) {
+            for (Path classFile : classFiles.filter(Files::isRegularFile).toList()) {
+                String entryName = classesDirectory.relativize(classFile).toString()
+                        .replace(classFile.getFileSystem().getSeparator(), "/");
+                jar.putNextEntry(new JarEntry(entryName));
+                Files.copy(classFile, jar);
+                jar.closeEntry();
+            }
+        }
+
+        Path outputDirectory = tempDir.resolve("rdf");
+        Files.createDirectories(outputDirectory);
+        String previousOutputDirectory = System.getProperty(CodeOntologyReporter.OUTPUT_DIRECTORY_PROPERTY);
+        String previousOutputFile = System.getProperty(CodeOntologyReporter.OUTPUT_FILE_PROPERTY);
+        System.clearProperty(CodeOntologyReporter.OUTPUT_FILE_PROPERTY);
+        System.setProperty(CodeOntologyReporter.OUTPUT_DIRECTORY_PROPERTY, outputDirectory.toString());
+
+        try {
+            JavaLibToRdf.main(new String[] { jarFile.toString(), "1.0.0" });
+
+            Path outputFile = outputDirectory.resolve("refmodule-1.0.0.ttl");
+            Model model = ModelFactory.createDefaultModel();
+            try (InputStream input = Files.newInputStream(outputFile)) {
+                model.read(input, outputFile.toUri().toString(), "TURTLE");
+            }
+
+            String namespace = "https://github.com/Incodam/";
+            Resource contract = model.getResource(namespace + "demo.ExampleContract");
+            assertTrue(contract.hasProperty(RDF.type, model.getResource("http://webofcode.orgClass")));
+            assertTrue(contract.hasProperty(RDF.type, model.getResource("http://webofcode.orgInterface")));
+
+            Property hasMethod = model.createProperty("http://webofcode.orghasMethod");
+            Property simpleName = model.createProperty("http://webofcode.orghasSimpleName");
+            Property hasReturnType = model.createProperty("http://webofcode.orghasReturnType");
+            Resource publicModifier = model.getResource("http://webofcode.orgPublic");
+            List<Resource> methods = contract.listProperties(hasMethod).toList().stream()
+                    .map(statement -> statement.getResource())
+                    .collect(Collectors.toList());
+            assertEquals(2, methods.size(), "Both abstract and default interface methods should be emitted");
+            assertTrue(methods.stream().allMatch(method ->
+                    method.hasProperty(model.createProperty("http://webofcode.orghasModifier"), publicModifier)));
+            assertTrue(methods.stream().anyMatch(method -> method.hasProperty(simpleName, "getName")
+                    && method.hasProperty(hasReturnType,
+                            model.getResource(namespace + "java.lang.String"))));
+            assertTrue(methods.stream().anyMatch(method -> method.hasProperty(simpleName, "count")
+                    && method.hasProperty(hasReturnType, model.getResource(namespace + "int"))));
+            assertFalse(contract.hasProperty(model.createProperty("http://webofcode.orghasConstructor")),
+                    "Interfaces should not have generated constructors");
+        } finally {
+            if (previousOutputDirectory == null) {
+                System.clearProperty(CodeOntologyReporter.OUTPUT_DIRECTORY_PROPERTY);
+            } else {
+                System.setProperty(CodeOntologyReporter.OUTPUT_DIRECTORY_PROPERTY, previousOutputDirectory);
+            }
+            if (previousOutputFile == null) {
+                System.clearProperty(CodeOntologyReporter.OUTPUT_FILE_PROPERTY);
+            } else {
+                System.setProperty(CodeOntologyReporter.OUTPUT_FILE_PROPERTY, previousOutputFile);
+            }
+        }
     }
 
     @Test

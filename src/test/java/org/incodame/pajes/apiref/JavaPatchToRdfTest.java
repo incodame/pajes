@@ -135,6 +135,53 @@ class JavaPatchToRdfTest {
     }
 
     @Test
+    void generatesInterfaceAndItsImplicitlyPublicMethods() throws Exception {
+        Path sourceFile = Files.createTempFile("ExampleContract", ".java");
+        Files.write(sourceFile, (
+                "package demo;\n" +
+                "interface ParentContract { void reset(); }\n" +
+                "public interface ExampleContract extends ParentContract {\n" +
+                "    String getName();\n" +
+                "    default void setName(String name) { }\n" +
+                "}\n"
+        ).getBytes());
+
+        Model model = JavaPatchToRdf.buildModelForFile(sourceFile.toString());
+        String namespace = "https://github.com/Incodam/";
+        Resource contract = model.getResource(namespace + "demo.ExampleContract");
+        Resource parentContract = model.getResource(namespace + "demo.ParentContract");
+        Resource wocInterface = model.getResource("http://webofcode.orgInterface");
+        Resource owlClass = model.getResource("http://www.w3.org/2002/07/owl#Class");
+        Property subClassOf = model.createProperty("http://www.w3.org/2000/01/rdf-schema#subClassOf");
+        Property hasMethod = model.createProperty("http://webofcode.orghasMethod");
+        Property hasConstructor = model.createProperty("http://webofcode.orghasConstructor");
+        Property methodName = model.createProperty("http://webofcode.orgname");
+        Property hasModifier = model.createProperty("http://webofcode.orghasModifier");
+        Resource publicModifier = model.getResource("http://webofcode.orgPublic");
+
+        assertTrue(contract.hasProperty(RDF.type, wocInterface));
+        assertTrue(contract.hasProperty(RDF.type, owlClass));
+        assertTrue(contract.hasProperty(subClassOf, parentContract),
+                "Extended interfaces should be represented as direct supertypes");
+        assertTrue(parentContract.hasProperty(RDF.type, wocInterface));
+        assertTrue(contract.hasProperty(hasMethod));
+        assertTrue(!contract.hasProperty(hasConstructor),
+                "Interfaces should not produce constructor records");
+
+        List<Resource> methods = model.listResourcesWithProperty(RDF.type,
+                model.getResource("http://webofcode.orgMethod")).toList();
+        for (String name : List.of("getName", "setName")) {
+            Resource method = methods.stream()
+                    .filter(candidate -> candidate.hasProperty(methodName, name))
+                    .filter(candidate -> candidate.getURI().contains("demo.ExampleContract_"))
+                    .findFirst()
+                    .orElseThrow(() -> new AssertionError("Missing interface method " + name));
+            assertTrue(method.hasProperty(hasModifier, publicModifier),
+                    "Interface methods are implicitly public");
+        }
+    }
+
+    @Test
     void linksClassesWithoutExplicitSuperclassToObject() throws Exception {
         Path sourceFile = Files.createTempFile("RootExample", ".java");
         Files.write(sourceFile, (

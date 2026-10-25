@@ -408,6 +408,7 @@ public class JavaPatchToRdf {
         Resource wocConstructorClass = model.createResource(WOC_NS + "Constructor");
         Resource wocParameterClass = model.createResource(WOC_NS + "Parameter");
         Resource wocClassClass = model.createResource(WOC_NS + "Class");
+        Resource wocInterfaceClass = model.createResource(WOC_NS + "Interface");
         Resource owlClass = model.createResource("http://www.w3.org/2002/07/owl#Class");
         Resource wocPublic = model.createResource(WOC_NS + "Public");
         Resource wocProtected = model.createResource(WOC_NS + "Protected");
@@ -442,6 +443,9 @@ public class JavaPatchToRdf {
                     .addProperty(RDF.type, wocClassClass)
                     .addProperty(RDF.type, owlClass)
                     .addProperty(wocHasSimpleName, type.getSimpleName());
+            if (type.isInterface()) {
+                classResource.addProperty(RDF.type, wocInterfaceClass);
+            }
             if (type.isPublic()) {
                 classResource.addProperty(wocHasModifier, wocPublic);
             } else if (type.isProtected()) {
@@ -464,8 +468,9 @@ public class JavaPatchToRdf {
             }
 
             for (CtMethod<?> method : type.getMethods()) {
-                if (method.isPublic() || method.isProtected()) {
-                    Resource visibility = method.isPublic() ? wocPublic : wocProtected;
+                boolean isPublic = method.isPublic() || (type.isInterface() && !method.isPrivate());
+                if (isPublic || method.isProtected()) {
+                    Resource visibility = isPublic ? wocPublic : wocProtected;
                     List<String> parameterTypes = getParameterTypeNames(method);
                         List<String> normalizedParameterTypes = parameterTypes.stream()
                             .map(JavaPatchToRdf::normalizeTypeName)
@@ -519,6 +524,9 @@ public class JavaPatchToRdf {
             }
 
             for (CtConstructor<?> constructor : type.getElements(new TypeFilter<>(CtConstructor.class))) {
+                if (type.isInterface()) {
+                    continue;
+                }
                 Resource visibility = constructor.isPublic() ? wocPublic
                         : constructor.isProtected() ? wocProtected
                         : constructor.isPrivate() ? wocPrivate : null;
@@ -575,6 +583,9 @@ public class JavaPatchToRdf {
             }
 
             for (Map.Entry<String, String> addedConstructor : addedConstructorDeclarations.entrySet()) {
+                if (type.isInterface()) {
+                    continue;
+                }
                 String signature = addedConstructor.getKey();
                 if (!signature.startsWith(type.getSimpleName() + "(")) {
                     continue;

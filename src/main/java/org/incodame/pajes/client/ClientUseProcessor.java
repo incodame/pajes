@@ -16,7 +16,9 @@ import spoon.reflect.code.CtInvocation;
 import spoon.reflect.declaration.CtClass;
 import spoon.reflect.declaration.CtElement;
 import spoon.reflect.declaration.CtExecutable;
+import spoon.reflect.declaration.CtInterface;
 import spoon.reflect.declaration.CtPackage;
+import spoon.reflect.declaration.CtType;
 import spoon.reflect.reference.CtExecutableReference;
 import spoon.reflect.reference.CtTypeReference;
 
@@ -37,6 +39,7 @@ public class ClientUseProcessor extends AbstractProcessor<CtElement> {
     private final Property wocImplements = model.createProperty(WOC + "implements");
     private final Property applBranch = model.createProperty(ICODM + "applBranch");
     private final Resource wocClass = model.createResource(WOC + "Class");
+    private final Resource wocInterface = model.createResource(WOC + "Interface");
     private final Resource owlClass = model.createResource("http://www.w3.org/2002/07/owl#Class");
 
     public ClientUseProcessor(String targetPackage, String branch) {
@@ -76,10 +79,9 @@ public class ClientUseProcessor extends AbstractProcessor<CtElement> {
                     // Construction de l'identifiant de la méthode (ex: icodm:org.incodame...Parameter_getName..._stable)
                     String apiMethodUri = buildMemberUri(executableRef); //ICODM + declaringType + "_" + executableRef.getSimpleName() + "_stable";
                     
-                    // Récupération de la classe cliente qui effectue l'appel
-                    CtClass<?> parentClass = element.getParent(CtClass.class);
-                    if (parentClass != null) {
-                        Resource clientResource = model.createResource(ICODM + parentClass.getQualifiedName());
+                    CtType<?> clientType = element.getParent(CtType.class);
+                    if (clientType != null) {
+                        Resource clientResource = getClientTypeResource(clientType);
                         Resource apiMethodResource = model.createResource(apiMethodUri);
                         
                         // Ajout du triplet : [Classe Cliente] -> woc:calls -> [Méthode de l'API]
@@ -101,9 +103,9 @@ public class ClientUseProcessor extends AbstractProcessor<CtElement> {
                     // Correspondance avec l'identifiant de votre constructeur (ex: ...Parameter_constructor_..._stable)
                     String apiConstructorUri = buildMemberUri(executableRef); //ICODM + declaringType + "_constructor_stable";
                     
-                    CtClass<?> parentClass = element.getParent(CtClass.class);
-                    if (parentClass != null) {
-                        Resource clientResource = model.createResource(ICODM + parentClass.getQualifiedName());
+                    CtType<?> clientType = element.getParent(CtType.class);
+                    if (clientType != null) {
+                        Resource clientResource = getClientTypeResource(clientType);
                         Resource apiConstructorResource = model.createResource(apiConstructorUri);
                         
                         clientResource.addProperty(wocCalls, apiConstructorResource);
@@ -113,41 +115,45 @@ public class ClientUseProcessor extends AbstractProcessor<CtElement> {
         }
 
         // 3. Détection de l'Héritage (extends) et des Implémentations (implements)
-        else if (element instanceof CtClass<?>) {
-            CtClass<?> ctClass = (CtClass<?>) element;
-            Resource clientClassResource = getClientClassResource(ctClass);
-            
-            // Vérification de la Superclasse
-            CtTypeReference<?> superclass = ctClass.getSuperclass();
-            if (superclass != null && isInTargetPackage(superclass.getQualifiedName())) {
-                Resource apiClassResource = model.createResource(ICODM + superclass.getQualifiedName());
-                clientClassResource.addProperty(wocExtends, apiClassResource);
-            }
-            
-            // Vérification des Interfaces
-            for (CtTypeReference<?> iface : ctClass.getSuperInterfaces()) {
-                if (isInTargetPackage(iface.getQualifiedName())) {
-                    Resource apiInterfaceResource = model.createResource(ICODM + iface.getQualifiedName());
-                    clientClassResource.addProperty(wocImplements, apiInterfaceResource);
+        else if (element instanceof CtClass<?> || element instanceof CtInterface<?>) {
+            CtType<?> clientType = (CtType<?>) element;
+            Resource clientTypeResource = getClientTypeResource(clientType);
+
+            if (clientType instanceof CtClass<?>) {
+                CtTypeReference<?> superclass = ((CtClass<?>) clientType).getSuperclass();
+                if (superclass != null && isInTargetPackage(superclass.getQualifiedName())) {
+                    Resource apiClassResource = model.createResource(ICODM + superclass.getQualifiedName());
+                    clientTypeResource.addProperty(wocExtends, apiClassResource);
                 }
             }
 
+            for (CtTypeReference<?> iface : clientType.getSuperInterfaces()) {
+                if (isInTargetPackage(iface.getQualifiedName())) {
+                    Resource apiInterfaceResource = model.createResource(ICODM + iface.getQualifiedName());
+                    clientTypeResource.addProperty(clientType instanceof CtInterface<?> ? wocExtends : wocImplements,
+                            apiInterfaceResource);
+                }
+            }
         }
     }
 
-    private Resource getClientClassResource(CtClass<?> ctClass) {
-        CtPackage ctPackage = ctClass.getPackage();
+    private Resource getClientTypeResource(CtType<?> clientType) {
+        CtPackage ctPackage = clientType.getPackage();
         if (ctPackage == null) {
-            ctPackage = ctClass.getParent(CtPackage.class);
+            ctPackage = clientType.getParent(CtPackage.class);
         }
         if (ctPackage != null && !ctPackage.getQualifiedName().isEmpty()) {
             String packageName = ctPackage.getQualifiedName();
             clientPackages.add(packageName);
         }
-        return model.createResource(ICODM + ctClass.getQualifiedName())
+        Resource clientResource = model.createResource(ICODM + clientType.getQualifiedName())
                 .addProperty(RDF.type, owlClass)
                 .addProperty(RDF.type, wocClass)
                 .addProperty(applBranch, branch);
+        if (clientType instanceof CtInterface<?>) {
+            clientResource.addProperty(RDF.type, wocInterface);
+        }
+        return clientResource;
     }
 
     private boolean isInTargetPackage(String qualifiedName) {
