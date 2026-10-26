@@ -94,13 +94,13 @@ class ClientUseCompilerTest {
                             assertDoesNotThrow(() -> request.getOutputHandler(null).consumeLine("Maven stdout"));
                             assertDoesNotThrow(() -> request.getErrorHandler(null).consumeLine("Maven stderr"));
                         String outputName = request.getProperties().getProperty("mdep.outputFile");
-                        assertDoesNotThrow(() -> Files.writeString(tempDir.resolve(outputName), "shared.jar"));
+                        assertDoesNotThrow(() -> Files.writeString(tempDir.resolve(outputName), "jena-core-4.10.0.jar"));
                         assertDoesNotThrow(() -> Files.writeString(tempDir.resolve("child").resolve(outputName),
-                                        "shared.jar" + File.pathSeparator + "med-ds.api.java-14.8.0-6.jar"));
+                                        "jena-core-4.10.0.jar" + File.pathSeparator + "jena-arq-4.10.0.jar"));
                 });
 
                 try (PrintStream log = new PrintStream(output)) {
-                        assertArrayEquals(new String[] { "shared.jar", "med-ds.api.java-14.8.0-6.jar" },
+                        assertArrayEquals(new String[] { "jena-core-4.10.0.jar", "jena-arq-4.10.0.jar" },
                                         ClientUseClasspath.resolve(pom, settings, log, invoker));
                 }
                 assertTrue(output.toString().contains("Maven stdout"));
@@ -349,7 +349,7 @@ class ClientUseCompilerTest {
                         + "class Unrelated { void run() { System.out.println(\"other API\"); } }\n"
                         + "interface UnrelatedContract extends java.lang.Runnable { }\n"
                         + "class Outer { static class Nested extends api.Api.Base { } }\n");
-        ClientUseProcessor processor = new ClientUseProcessor("api", "14.8.0");
+        ClientUseProcessor processor = new ClientUseProcessor("api", "1.0.1");
         Launcher launcher = new Launcher();
         launcher.getEnvironment().setNoClasspath(true);
         launcher.addInputResource(apiSource.toString());
@@ -367,7 +367,7 @@ class ClientUseCompilerTest {
                 "ExtendsApiContract", "Outer$Nested")) {
             org.apache.jena.rdf.model.Resource client = model.getResource(namespace + "example." + className);
             assertTrue(client.hasProperty(RDF.type), "API client should retain its type: " + className);
-            assertTrue(client.hasProperty(model.createProperty(namespace + "applBranch"), "14.8.0"));
+            assertTrue(client.hasProperty(model.createProperty(namespace + "applBranch"), "1.0.1"));
             assertTrue(client.hasProperty(model.createProperty("http://webofcode.orgcalls"))
                     || client.hasProperty(model.createProperty("http://webofcode.orgimplements"))
                     || client.hasProperty(model.createProperty("http://webofcode.orgextends")),
@@ -396,7 +396,7 @@ class ClientUseCompilerTest {
                 return new ClientUseCompiler(factory, diagnosticsFile);
             }
         };
-        ClientUseProcessor processor = new ClientUseProcessor("example", "14.8.0");
+        ClientUseProcessor processor = new ClientUseProcessor("example", "1.0.1");
         launcher.getEnvironment().setComplianceLevel(17);
         launcher.getEnvironment().setNoClasspath(false);
         launcher.addInputResource(sourceFile.toString());
