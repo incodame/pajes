@@ -117,27 +117,27 @@ public class ClientUseProcessor extends AbstractProcessor<CtElement> {
         // 3. Détection de l'Héritage (extends) et des Implémentations (implements)
         else if (element instanceof CtClass<?> || element instanceof CtInterface<?>) {
             CtType<?> clientType = (CtType<?>) element;
-            Resource clientTypeResource = getClientTypeResource(clientType);
+            recordClientPackage(clientType);
 
             if (clientType instanceof CtClass<?>) {
                 CtTypeReference<?> superclass = ((CtClass<?>) clientType).getSuperclass();
                 if (superclass != null && isInTargetPackage(superclass.getQualifiedName())) {
                     Resource apiClassResource = model.createResource(ICODM + superclass.getQualifiedName());
-                    clientTypeResource.addProperty(wocExtends, apiClassResource);
+                    getClientTypeResource(clientType).addProperty(wocExtends, apiClassResource);
                 }
             }
 
             for (CtTypeReference<?> iface : clientType.getSuperInterfaces()) {
                 if (isInTargetPackage(iface.getQualifiedName())) {
                     Resource apiInterfaceResource = model.createResource(ICODM + iface.getQualifiedName());
-                    clientTypeResource.addProperty(clientType instanceof CtInterface<?> ? wocExtends : wocImplements,
+                    getClientTypeResource(clientType).addProperty(clientType instanceof CtInterface<?> ? wocExtends : wocImplements,
                             apiInterfaceResource);
                 }
             }
         }
     }
 
-    private Resource getClientTypeResource(CtType<?> clientType) {
+    private void recordClientPackage(CtType<?> clientType) {
         CtPackage ctPackage = clientType.getPackage();
         if (ctPackage == null) {
             ctPackage = clientType.getParent(CtPackage.class);
@@ -146,6 +146,10 @@ public class ClientUseProcessor extends AbstractProcessor<CtElement> {
             String packageName = ctPackage.getQualifiedName();
             clientPackages.add(packageName);
         }
+    }
+
+    private Resource getClientTypeResource(CtType<?> clientType) {
+        recordClientPackage(clientType);
         Resource clientResource = model.createResource(ICODM + clientType.getQualifiedName())
                 .addProperty(RDF.type, owlClass)
                 .addProperty(RDF.type, wocClass)

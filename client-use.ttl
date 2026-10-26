@@ -7,13 +7,9 @@ icodm:org.incodame.pajes.client.ClientUseRdfMetadata
         woc:calls         icodm:org.apache.jena.rdf.model.Resource_addProperty_877b2aa90db3_stable , icodm:org.apache.jena.rdf.model.Resource_addProperty_dd51bdb9c2e3_stable , icodm:org.apache.jena.rdf.model.ModelCon_createProperty_e04c9b186dd9_stable , icodm:org.apache.jena.rdf.model.Model_createResource_08dd8f5d5f48_stable , icodm:org.apache.jena.rdf.model.Model_setNsPrefix_bea38db0530e_stable;
         icodm:applBranch  "main" .
 
-icodm:org.incodame.pajes.apiref.JavaLibToRdf
-        a                 woc:Class , owl:Class;
-        icodm:applBranch  "main" .
-
 icodm:org.incodame.pajes.apiref.JavaPatchToRdf
         a                 owl:Class , woc:Class;
-        woc:calls         icodm:org.apache.jena.rdf.model.Model_write_4a0704811d3b_stable , icodm:org.apache.jena.rdf.model.Resource_addProperty_dd51bdb9c2e3_stable , icodm:org.apache.jena.rdf.model.Model_createResource_08dd8f5d5f48_stable , icodm:org.apache.jena.rdf.model.ModelCon_createTypedLiteral_e849c5806614_stable , icodm:org.apache.jena.rdf.model.ModelFactory_createDefaultModel_8fa10a9fce3f_stable , icodm:org.apache.jena.rdf.model.ModelCon_createProperty_e04c9b186dd9_stable , icodm:org.apache.jena.rdf.model.Model_setNsPrefix_bea38db0530e_stable , icodm:org.apache.jena.rdf.model.Resource_addProperty_877b2aa90db3_stable , icodm:org.apache.jena.rdf.model.Model_createList_690c5e31c73e_stable , icodm:org.apache.jena.rdf.model.Model_createResource_be3649c9050d_stable;
+        woc:calls         icodm:org.apache.jena.rdf.model.Resource_addProperty_dd51bdb9c2e3_stable , icodm:org.apache.jena.rdf.model.Model_write_4a0704811d3b_stable , icodm:org.apache.jena.rdf.model.Model_createResource_08dd8f5d5f48_stable , icodm:org.apache.jena.rdf.model.ModelCon_createTypedLiteral_e849c5806614_stable , icodm:org.apache.jena.rdf.model.ModelFactory_createDefaultModel_8fa10a9fce3f_stable , icodm:org.apache.jena.rdf.model.ModelCon_createProperty_e04c9b186dd9_stable , icodm:org.apache.jena.rdf.model.Model_setNsPrefix_bea38db0530e_stable , icodm:org.apache.jena.rdf.model.Resource_addProperty_877b2aa90db3_stable , icodm:org.apache.jena.rdf.model.Model_createList_690c5e31c73e_stable , icodm:org.apache.jena.rdf.model.Model_createResource_be3649c9050d_stable;
         icodm:applBranch  "main" .
 
 icodm:org.incodame.pajes.client.ClientUseToRdf
@@ -37,10 +33,6 @@ icodm:org.incodame.pajes.apiref.CodeOntologyReporter
         woc:calls         icodm:org.apache.jena.rdf.model.Model_write_2031d85c99f0_stable , icodm:org.apache.jena.rdf.model.Model_setNsPrefix_bea38db0530e_stable , icodm:org.apache.jena.rdf.model.ModelFactory_createDefaultModel_8fa10a9fce3f_stable;
         icodm:applBranch  "main" .
 
-<https://github.com/Incodam/org.incodame.pajes.apiref.ClassHierarchy$1>
-        a                 woc:Class , owl:Class;
-        icodm:applBranch  "main" .
-
 icodm:org.incodame.pajes.client
         a                    woc:Package , icodm:JavaSubModule;
         icodm:hasDependency  icodm:org.incodame.pajes_dependency_6841abb9d230 .
@@ -59,16 +51,4 @@ icodm:org.incodame.pajes.apiref.CodeOntologyVisitor
 icodm:org.incodame.pajes.client.ClientUseProcessor
         a                 woc:Class , owl:Class;
         woc:calls         icodm:org.apache.jena.rdf.model.Resource_addProperty_877b2aa90db3_stable , icodm:org.apache.jena.rdf.model.Resource_addProperty_dd51bdb9c2e3_stable , icodm:org.apache.jena.rdf.model.Model_setNsPrefix_bea38db0530e_stable , icodm:org.apache.jena.rdf.model.Model_createResource_08dd8f5d5f48_stable , icodm:org.apache.jena.rdf.model.ModelCon_createProperty_e04c9b186dd9_stable , icodm:org.apache.jena.rdf.model.ModelFactory_createDefaultModel_8fa10a9fce3f_stable;
-        icodm:applBranch  "main" .
-
-icodm:org.incodame.pajes.apiref.ClassHierarchy
-        a                 woc:Class , owl:Class;
-        icodm:applBranch  "main" .
-
-<https://github.com/Incodam/org.incodame.pajes.client.ClientUseToRdf$1>
-        a                 woc:Class , owl:Class;
-        icodm:applBranch  "main" .
-
-icodm:org.incodame.pajes.client.ClientUseCompiler
-        a                 woc:Class , owl:Class;
         icodm:applBranch  "main" .
