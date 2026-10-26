@@ -52,7 +52,7 @@ To configure Maven settings for dependency resolution, create `pajes-config.yaml
 in the current working directory:
 ```yaml
 maven:
-  settings: c:/Dev/maven/settings.xml
+  settings: /path/to/maven/settings.xml
 ```
 Relative settings paths are resolved relative to the configuration file. If the
 file or `maven.settings` property is absent, Maven uses its default settings.
