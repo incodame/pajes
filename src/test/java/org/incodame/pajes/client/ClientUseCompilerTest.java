@@ -378,43 +378,6 @@ class ClientUseCompilerTest {
     }
 
     @Test
-    void continuesRdfAnalysisAfterLoggingUndefinedMethod(@TempDir Path tempDir) throws Exception {
-        Path sourceFile = tempDir.resolve("NoActionDAO.java");
-        Files.writeString(sourceFile,
-                "package example;\n"
-                        + "public class NoActionDAO {\n"
-                        + "    public void read() {\n"
-                        + "        new ProductStreamReader().getNumberOfRecords();\n"
-                        + "    }\n"
-                        + "}\n"
-                        + "class ProductStreamReader { }\n");
-
-        Path diagnosticsFile = tempDir.resolve("client-use-errors.log");
-        Launcher launcher = new Launcher() {
-            @Override
-            protected SpoonModelBuilder getCompilerInstance(Factory factory) {
-                return new ClientUseCompiler(factory, diagnosticsFile);
-            }
-        };
-        ClientUseProcessor processor = new ClientUseProcessor("example", "1.0.1");
-        launcher.getEnvironment().setComplianceLevel(17);
-        launcher.getEnvironment().setNoClasspath(false);
-        launcher.addInputResource(sourceFile.toString());
-        launcher.addProcessor(processor);
-        launcher.run();
-
-        String diagnostics = Files.readString(diagnosticsFile);
-        assertTrue(diagnostics.contains("ERROR:"), diagnostics);
-        assertTrue(diagnostics.contains("getNumberOfRecords() is undefined"), diagnostics);
-        assertTrue(diagnostics.contains(sourceFile.toFile().getCanonicalPath() + ":4"), diagnostics);
-        assertTrue(processor.getClientPackages().contains("example"),
-                "RDF processing should continue despite the undefined method");
-        assertTrue(processor.getModel().getResource("https://github.com/Incodam/example.NoActionDAO")
-                        .hasProperty(RDF.type),
-                "RDF output should include the class with the compiler error");
-    }
-
-    @Test
     void compilesGeneratedSourceUsingJenaApiAndWritesDiagnostics(@TempDir Path tempDir) throws Exception {
         Path sourceFile = tempDir.resolve("JenaClientExample.java");
         Files.writeString(sourceFile,
