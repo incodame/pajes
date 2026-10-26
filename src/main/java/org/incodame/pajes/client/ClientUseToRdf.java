@@ -4,6 +4,9 @@ import spoon.MavenLauncher;
 
 import spoon.SpoonModelBuilder;
 import spoon.reflect.factory.Factory;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -57,19 +60,15 @@ public class ClientUseToRdf {
                     }
                 };
         
-        Path settingsXmlPath = Paths.get("path/to/settings.xml");
-        if (Files.isReadable(settingsXmlPath)) {    
-            String absoluteSettingsPath = settingsXmlPath.toAbsolutePath().toString();
-            launcher.setEnvironmentVariable("MAVEN_ARGS", "-s " + absoluteSettingsPath);
-            log.println("Resolving maven classpath using " + absoluteSettingsPath);
+        Path settingsXmlPath = resolveMavenSettings(Paths.get("pajes-config.yaml"));
+        if (settingsXmlPath != null) {
+            log.println("Resolving maven classpath using " + settingsXmlPath);
         }
 
-        launcher.rebuildClasspath();
-        String[] classpathEntries = launcher.getEnvironment().getSourceClasspath();
-        if (classpathEntries.length == 0) {
-            throw new IllegalStateException("Spoon's maven source classpath is empty; resolution did not produce any entries.");
-        }
-        log.println("Spoon's maven source classpath resolved with " + classpathEntries.length + " entries.");
+        reportProgress(log, "Starting Maven dependency resolution; output: client-use.log");
+        String[] classpathEntries = ClientUseClasspath.resolve(launcher.getPomFile(), settingsXmlPath, log);
+        launcher.getModelBuilder().setSourceClasspath(classpathEntries);
+        log.println("Maven source classpath resolved with " + classpathEntries.length + " entries.");
         for (String entry : classpathEntries) {
             log.println("  " + entry);
         }
@@ -103,6 +102,27 @@ public class ClientUseToRdf {
         reportProgress(log, "RDF analysis report generated: client-use.ttl ("
                 + rdfProcessor.getModel().size() + " triples)");
 
+    }
+
+    static Path resolveMavenSettings(Path configurationFile) throws IOException {
+        if (!Files.exists(configurationFile)) {
+            return null;
+        }
+        JsonNode configuration = new ObjectMapper(new YAMLFactory()).readTree(configurationFile.toFile());
+        JsonNode settings = configuration == null ? null : configuration.path("maven").path("settings");
+        if (settings == null || settings.isMissingNode() || settings.isNull()) {
+            return null;
+        }
+        if (!settings.isTextual() || settings.asText().trim().isEmpty()) {
+            throw new IOException("maven.settings must be a non-empty path in " + configurationFile);
+        }
+        Path settingsPath = configurationFile.toAbsolutePath().getParent()
+                .resolve(settings.asText().trim()).normalize();
+        if (!Files.isRegularFile(settingsPath) || !Files.isReadable(settingsPath)) {
+            throw new IOException("Maven settings file configured in " + configurationFile
+                    + " is not readable: " + settingsPath);
+        }
+        return settingsPath;
     }
 
     private static String resolveGroupId(MavenLauncher launcher) {

@@ -1,32 +1,234 @@
 package org.incodame.pajes.client;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.File;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.PrintStream;
 import java.io.StringWriter;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
+import java.util.function.Consumer;
 
 import org.apache.jena.rdf.model.Property;
 import org.apache.jena.vocabulary.RDF;
+import org.apache.maven.shared.invoker.DefaultInvoker;
+import org.apache.maven.shared.invoker.InvocationRequest;
+import org.apache.maven.shared.invoker.InvocationResult;
+import org.apache.maven.shared.invoker.Invoker;
+import org.apache.maven.shared.utils.cli.CommandLineException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import spoon.Launcher;
+import spoon.MavenLauncher;
 import spoon.SpoonModelBuilder;
-import spoon.compiler.Environment;
 import spoon.reflect.factory.Factory;
+import spoon.support.StandardEnvironment;
+import spoon.support.compiler.SpoonPom;
 
 class ClientUseCompilerTest {
+
+        @Test
+        void launchesConfiguredMavenInsteadOfProjectLocalScript(@TempDir Path tempDir) throws Exception {
+                Path home = tempDir.resolve("Maven installation");
+                Path bin = Files.createDirectories(home.resolve("bin"));
+                boolean windows = File.separatorChar == '\\';
+                Path executable = bin.resolve(windows ? "mvn.cmd" : "mvn");
+                Files.writeString(executable, windows
+                                ? "@echo off\r\necho Configured Maven launched\r\nexit /b 0\r\n"
+                                : "#!/bin/sh\nprintf '%s\\n' 'Configured Maven launched'\nexit 0\n");
+                if (!windows) {
+                        assertTrue(executable.toFile().setExecutable(true));
+                }
+                Path project = Files.createDirectories(tempDir.resolve("client project"));
+                Files.writeString(project.resolve("mvn"), "#!/bin/sh\nexit 1\n");
+                Invoker invoker = ClientUseClasspath.createMavenInvoker(home);
+                assertEquals(executable.toAbsolutePath().toFile(), invoker.getMavenExecutable());
+
+                org.apache.maven.shared.invoker.InvocationRequest request =
+                                new org.apache.maven.shared.invoker.DefaultInvocationRequest();
+                request.setBaseDirectory(project.toFile());
+                request.setGoals(Arrays.asList("--version"));
+                ByteArrayOutputStream output = new ByteArrayOutputStream();
+                try (PrintStream log = new PrintStream(output)) {
+                        request.setOutputHandler(log::println);
+                        request.setErrorHandler(log::println);
+                        InvocationResult result = invoker.execute(request);
+                        assertNull(result.getExecutionException(), output.toString());
+                        assertEquals(0, result.getExitCode(), output.toString());
+                }
+                assertTrue(output.toString().contains("Configured Maven launched"), output.toString());
+        }
+
+        @Test
+        void rejectsMissingMavenExecutable(@TempDir Path tempDir) {
+                IOException failure = assertThrows(IOException.class,
+                                () -> ClientUseClasspath.createMavenInvoker(tempDir));
+                assertTrue(failure.getMessage().contains("Maven executable not found"));
+        }
+
+        @Test
+        void resolvesFreshModuleClasspathsWithExplicitSettings(@TempDir Path tempDir) throws Exception {
+                SpoonPom pom = createMultiModulePom(tempDir);
+                Path settings = tempDir.resolve("settings with spaces.xml");
+                Files.writeString(settings, "<settings/>");
+                ByteArrayOutputStream output = new ByteArrayOutputStream();
+                Path staleClasspath = tempDir.resolve("spoon.classpath-app.tmp");
+                Files.writeString(staleClasspath, "stale.jar");
+                Invoker invoker = mavenInvocation(0, request -> {
+                        assertEquals(settings.toFile(), request.getUserSettingsFile());
+                        assertEquals(pom.toFile(), request.getPomFile());
+                        assertEquals(InvocationRequest.ReactorFailureBehavior.FailFast, request.getReactorFailureBehavior());
+                        assertTrue(request.isRecursive());
+                        assertEquals("compile", request.getProperties().getProperty("includeScope"));
+                        assertEquals(Arrays.asList("dependency:build-classpath"), request.getGoals());
+                            assertDoesNotThrow(() -> request.getOutputHandler(null).consumeLine("Maven stdout"));
+                            assertDoesNotThrow(() -> request.getErrorHandler(null).consumeLine("Maven stderr"));
+                        String outputName = request.getProperties().getProperty("mdep.outputFile");
+                        assertDoesNotThrow(() -> Files.writeString(tempDir.resolve(outputName), "shared.jar"));
+                        assertDoesNotThrow(() -> Files.writeString(tempDir.resolve("child").resolve(outputName),
+                                        "shared.jar" + File.pathSeparator + "med-ds.api.java-14.8.0-6.jar"));
+                });
+
+                try (PrintStream log = new PrintStream(output)) {
+                        assertArrayEquals(new String[] { "shared.jar", "med-ds.api.java-14.8.0-6.jar" },
+                                        ClientUseClasspath.resolve(pom, settings, log, invoker));
+                }
+                assertTrue(output.toString().contains("Maven stdout"));
+                assertTrue(output.toString().contains("Maven stderr"));
+                assertEquals("stale.jar", Files.readString(staleClasspath));
+                assertNoTemporaryClasspaths(tempDir);
+        }
+
+        @Test
+        void rejectsFailedMavenResolutionDespitePartialAndCachedClasspaths(@TempDir Path tempDir) throws Exception {
+                SpoonPom pom = createMultiModulePom(tempDir);
+                Path staleClasspath = tempDir.resolve("child/spoon.classpath-app.tmp");
+                Files.writeString(staleClasspath, "stale.jar");
+                ByteArrayOutputStream output = new ByteArrayOutputStream();
+                Invoker invoker = mavenInvocation(1, request -> {
+                        assertNull(request.getUserSettingsFile());
+                            assertDoesNotThrow(() -> request.getErrorHandler(null).consumeLine("[ERROR] Could not resolve dependency"));
+                        String outputName = request.getProperties().getProperty("mdep.outputFile");
+                        assertDoesNotThrow(() -> Files.writeString(tempDir.resolve(outputName), "partial.jar"));
+                });
+
+                try (PrintStream log = new PrintStream(output)) {
+                        IOException failure = assertThrows(IOException.class,
+                                        () -> ClientUseClasspath.resolve(pom, null, log, invoker));
+                        assertTrue(failure.getMessage().contains("exit code 1"));
+                        assertTrue(failure.getMessage().contains("client-use.log"));
+                }
+                assertTrue(output.toString().contains("Could not resolve dependency"));
+                assertEquals("stale.jar", Files.readString(staleClasspath));
+                assertNoTemporaryClasspaths(tempDir);
+        }
+
+        @Test
+        void rejectsSuccessfulMavenInvocationWithoutFreshClasspath(@TempDir Path tempDir) throws Exception {
+                SpoonPom pom = createMultiModulePom(tempDir);
+                Files.writeString(tempDir.resolve("child/spoon.classpath-app.tmp"), "stale.jar");
+                try (PrintStream log = new PrintStream(new ByteArrayOutputStream())) {
+                        IOException failure = assertThrows(IOException.class,
+                                        () -> ClientUseClasspath.resolve(pom, null, log, mavenInvocation(0, request -> { })));
+                        assertTrue(failure.getMessage().contains("no classpath entries"));
+                }
+                assertNoTemporaryClasspaths(tempDir);
+        }
+
+        private static SpoonPom createMultiModulePom(Path directory) throws Exception {
+                Files.writeString(directory.resolve("pom.xml"),
+                                "<project><modelVersion>4.0.0</modelVersion><groupId>example</groupId>"
+                                                + "<artifactId>parent</artifactId><version>1</version><packaging>pom</packaging>"
+                                                + "<modules><module>child</module></modules></project>");
+                Path child = Files.createDirectories(directory.resolve("child"));
+                Files.writeString(child.resolve("pom.xml"),
+                                "<project><modelVersion>4.0.0</modelVersion><groupId>example</groupId>"
+                                                + "<artifactId>child</artifactId><version>1</version></project>");
+                return new SpoonPom(directory.toString(), MavenLauncher.SOURCE_TYPE.APP_SOURCE, new StandardEnvironment());
+        }
+
+        private static Invoker mavenInvocation(int exitCode, Consumer<InvocationRequest> action) {
+                return new DefaultInvoker() {
+                        @Override
+                        public InvocationResult execute(InvocationRequest request) {
+                                action.accept(request);
+                                return new InvocationResult() {
+                                        @Override
+                                        public int getExitCode() {
+                                                return exitCode;
+                                        }
+
+                                        @Override
+                                        public CommandLineException getExecutionException() {
+                                                return null;
+                                        }
+                                };
+                        }
+                };
+        }
+
+        private static void assertNoTemporaryClasspaths(Path directory) throws IOException {
+                try (java.util.stream.Stream<Path> files = Files.walk(directory)) {
+                        assertFalse(files.anyMatch(path -> path.getFileName().toString().startsWith(".pajes-classpath-")));
+                }
+        }
+
+        @Test
+        void readsMavenSettingsFromYaml(@TempDir Path tempDir) throws Exception {
+                Path settings = Files.createDirectories(tempDir.resolve("maven configuration")).resolve("settings.xml");
+                Files.writeString(settings, "<settings/>");
+                Path configuration = tempDir.resolve("pajes-config.yaml");
+                Files.writeString(configuration, "maven:\n  settings: '"
+                                + settings.toString().replace('\\', '/') + "'\n");
+
+                assertEquals(settings.toAbsolutePath(), ClientUseToRdf.resolveMavenSettings(configuration));
+
+                Files.writeString(configuration, "maven:\n  settings: maven configuration/settings.xml\n");
+                assertEquals(settings.toAbsolutePath(), ClientUseToRdf.resolveMavenSettings(configuration));
+        }
+
+        @Test
+        void usesDefaultMavenSettingsWithoutConfiguration(@TempDir Path tempDir) throws Exception {
+                Path configuration = tempDir.resolve("pajes-config.yaml");
+                assertNull(ClientUseToRdf.resolveMavenSettings(configuration));
+
+                Files.writeString(configuration, "maven: {}\n");
+                assertNull(ClientUseToRdf.resolveMavenSettings(configuration));
+        }
+
+        @Test
+        void rejectsInvalidMavenSettingsConfiguration(@TempDir Path tempDir) throws Exception {
+                Path configuration = tempDir.resolve("pajes-config.yaml");
+                Files.writeString(configuration, "maven:\n  settings: missing-settings.xml\n");
+                IOException missingFile = assertThrows(IOException.class,
+                                () -> ClientUseToRdf.resolveMavenSettings(configuration));
+                assertTrue(missingFile.getMessage().contains("missing-settings.xml"));
+
+                Files.writeString(configuration, "maven:\n  settings: []\n");
+                assertThrows(IOException.class, () -> ClientUseToRdf.resolveMavenSettings(configuration));
+
+                Files.writeString(configuration, "maven:\n  settings: ' '\n");
+                assertThrows(IOException.class, () -> ClientUseToRdf.resolveMavenSettings(configuration));
+        }
 
     @Test
     void associatesAnalyzedClassesWithTheProvidedBranch(@TempDir Path tempDir) throws Exception {
         Path sourceFile = tempDir.resolve("BranchExample.java");
         Files.writeString(sourceFile,
                 "package example;\n"
-                        + "public class BranchExample { }\n");
+                        + "public class BranchExample {\n"
+                        + "    public Object create() { return org.apache.jena.rdf.model.ModelFactory.createDefaultModel(); }\n"
+                        + "}\n");
 
         ClientUseProcessor processor = new ClientUseProcessor("org.apache.jena.rdf.model", "main");
         Launcher launcher = new Launcher();
@@ -105,7 +307,7 @@ class ClientUseCompilerTest {
                         + "public class AnonymousExample {\n"
                         + "    public Object create() {\n"
                         + "        return new Runnable() {\n"
-                        + "            public void run() { }\n"
+                        + "            public void run() { org.apache.jena.rdf.model.ModelFactory.createDefaultModel(); }\n"
                         + "        };\n"
                         + "    }\n"
                         + "}\n");
@@ -121,6 +323,95 @@ class ClientUseCompilerTest {
                 "Named classes should still contribute their package");
         assertTrue(processor.getModel().size() > 0,
                 "Anonymous classes should be processed without aborting RDF generation");
+        assertFalse(processor.getModel().containsResource(processor.getModel()
+                        .getResource("https://github.com/Incodam/example.AnonymousExample")),
+                "The outer class should be omitted when only its anonymous class calls the API");
+    }
+
+    @Test
+    void omitsTypesWithoutTargetApiLinks(@TempDir Path tempDir) throws Exception {
+        Path apiSource = tempDir.resolve("Api.java");
+        Files.writeString(apiSource,
+                "package api;\n"
+                        + "public class Api {\n"
+                        + "    public static void ping() { }\n"
+                        + "    public static class Base { }\n"
+                        + "    public interface Contract { }\n"
+                        + "}\n");
+        Path clientSource = tempDir.resolve("Clients.java");
+        Files.writeString(clientSource,
+                "package example;\n"
+                        + "class CallsApi { void run() { api.Api.ping(); } }\n"
+                        + "class ConstructsApi { Object create() { return new api.Api(); } }\n"
+                        + "class ExtendsApi extends api.Api.Base { }\n"
+                        + "class ImplementsApi implements api.Api.Contract { }\n"
+                        + "interface ExtendsApiContract extends api.Api.Contract { }\n"
+                        + "class Unrelated { void run() { System.out.println(\"other API\"); } }\n"
+                        + "interface UnrelatedContract extends java.lang.Runnable { }\n"
+                        + "class Outer { static class Nested extends api.Api.Base { } }\n");
+        ClientUseProcessor processor = new ClientUseProcessor("api", "14.8.0");
+        Launcher launcher = new Launcher();
+        launcher.getEnvironment().setNoClasspath(true);
+        launcher.addInputResource(apiSource.toString());
+        launcher.addInputResource(clientSource.toString());
+        launcher.addProcessor(processor);
+        launcher.run();
+
+        org.apache.jena.rdf.model.Model model = processor.getModel();
+        String namespace = "https://github.com/Incodam/";
+        for (String className : Arrays.asList("Unrelated", "UnrelatedContract", "Outer")) {
+            assertFalse(model.containsResource(model.getResource(namespace + "example." + className)),
+                    "Unrelated type should be omitted: " + className);
+        }
+        for (String className : Arrays.asList("CallsApi", "ConstructsApi", "ExtendsApi", "ImplementsApi",
+                "ExtendsApiContract", "Outer$Nested")) {
+            org.apache.jena.rdf.model.Resource client = model.getResource(namespace + "example." + className);
+            assertTrue(client.hasProperty(RDF.type), "API client should retain its type: " + className);
+            assertTrue(client.hasProperty(model.createProperty(namespace + "applBranch"), "14.8.0"));
+            assertTrue(client.hasProperty(model.createProperty("http://webofcode.orgcalls"))
+                    || client.hasProperty(model.createProperty("http://webofcode.orgimplements"))
+                    || client.hasProperty(model.createProperty("http://webofcode.orgextends")),
+                    "Each emitted client type must have a target API link: " + className);
+        }
+        assertTrue(processor.getClientPackages().contains("example"),
+                "Package metadata should remain available");
+    }
+
+    @Test
+    void continuesRdfAnalysisAfterLoggingUndefinedMethod(@TempDir Path tempDir) throws Exception {
+        Path sourceFile = tempDir.resolve("NoActionDAO.java");
+        Files.writeString(sourceFile,
+                "package example;\n"
+                        + "public class NoActionDAO {\n"
+                        + "    public void read() {\n"
+                        + "        new ProductStreamReader().getNumberOfRecords();\n"
+                        + "    }\n"
+                        + "}\n"
+                        + "class ProductStreamReader { }\n");
+
+        Path diagnosticsFile = tempDir.resolve("client-use-errors.log");
+        Launcher launcher = new Launcher() {
+            @Override
+            protected SpoonModelBuilder getCompilerInstance(Factory factory) {
+                return new ClientUseCompiler(factory, diagnosticsFile);
+            }
+        };
+        ClientUseProcessor processor = new ClientUseProcessor("example", "14.8.0");
+        launcher.getEnvironment().setComplianceLevel(17);
+        launcher.getEnvironment().setNoClasspath(false);
+        launcher.addInputResource(sourceFile.toString());
+        launcher.addProcessor(processor);
+        launcher.run();
+
+        String diagnostics = Files.readString(diagnosticsFile);
+        assertTrue(diagnostics.contains("ERROR:"), diagnostics);
+        assertTrue(diagnostics.contains("getNumberOfRecords() is undefined"), diagnostics);
+        assertTrue(diagnostics.contains(sourceFile.toFile().getCanonicalPath() + ":4"), diagnostics);
+        assertTrue(processor.getClientPackages().contains("example"),
+                "RDF processing should continue despite the undefined method");
+        assertTrue(processor.getModel().getResource("https://github.com/Incodam/example.NoActionDAO")
+                        .hasProperty(RDF.type),
+                "RDF output should include the class with the compiler error");
     }
 
     @Test
@@ -163,8 +454,6 @@ class ClientUseCompilerTest {
         launcher.buildModel();
 
         assertTrue(launcher.compiler != null, "Spoon should create the diagnostic compiler");
-        Environment environment = launcher.getEnvironment();
-        launcher.compiler.reportProblem(environment);
 
         assertTrue(Files.isRegularFile(diagnosticsFile), "Compiler should create the diagnostics file");
         String diagnostics = Files.readString(diagnosticsFile);
