@@ -10,11 +10,11 @@ import spoon.reflect.declaration.CtType;
 import spoon.reflect.reference.CtTypeReference;
 import spoon.reflect.visitor.filter.TypeFilter;
 
-import java.io.BufferedReader;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -24,6 +24,9 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 public class JavaPatchToRdf {
 
@@ -40,6 +43,21 @@ public class JavaPatchToRdf {
     // Espace de noms personnalisé pour votre projet / votre pont logique
     // The trailing slash keeps Turtle serializer output compatible with the icodm: prefix.
     private static final String EX_NS = "https://github.com/Incodam/";
+    private static final Pattern PACKAGE_DECLARATION = Pattern.compile("\\bpackage\\s+([\\w.]+)\\s*;");
+    private static final Pattern TYPE_DECLARATION = Pattern.compile(
+            "\\b(class|interface|enum|record)\\s+([A-Za-z_$][\\w$]*)");
+
+    private static final class PatchFile {
+        private final String oldPath;
+        private final String newPath;
+        private final List<String> lines;
+
+        private PatchFile(String oldPath, String newPath, List<String> lines) {
+            this.oldPath = oldPath;
+            this.newPath = newPath;
+            this.lines = lines;
+        }
+    }
 
     private static String buildMemberURI(String declaringType, String memberName, List<String> parameterTypes,
             String state) {
@@ -289,103 +307,103 @@ public class JavaPatchToRdf {
         return findExactPatchParameterTypes(signatures, memberName, parameterTypes) != null;
     }
 
-    private static Set<String> readPatchSignatures(String patchPath, char marker) throws IOException {
+    private static Set<String> readPatchSignatures(List<String> lines, char marker) {
         Set<String> signatures = new HashSet<>();
-        if (patchPath == null || patchPath.trim().isEmpty()) {
-            return signatures;
-        }
-
         StringBuilder currentDeclaration = null;
 
-        try (BufferedReader reader = Files.newBufferedReader(Paths.get(patchPath))) {
-            String line;
-            while ((line = reader.readLine()) != null) {
-                String trimmed = line.trim();
+        for (String line : lines) {
+            String trimmed = line.trim();
 
-                if (trimmed.startsWith("+") || trimmed.startsWith("-")) {
-                    if (trimmed.charAt(0) != marker) {
-                        currentDeclaration = null;
-                        continue;
-                    }
-                    String content = trimmed.substring(1).trim();
-                    if (content.isEmpty()) {
-                        continue;
-                    }
-
-                    if (currentDeclaration == null && content.contains("(") &&
-                            (content.contains("public") || content.contains("protected") || content.contains("private"))) {
-                        currentDeclaration = new StringBuilder(content);
-                    } else if (currentDeclaration != null) {
-                        currentDeclaration.append(" ").append(content);
-                    }
-
-                    if (currentDeclaration != null && currentDeclaration.indexOf("(") >= 0 && currentDeclaration.indexOf(")") >= 0) {
-                        String normalized = normalizeMethodSignature(currentDeclaration.toString());
-                        if (!normalized.isEmpty()) {
-                            signatures.add(normalized);
-                        }
-                        currentDeclaration = null;
-                    }
+            if (trimmed.startsWith("+") || trimmed.startsWith("-")) {
+                if (trimmed.charAt(0) != marker) {
+                    currentDeclaration = null;
+                    continue;
+                }
+                String content = trimmed.substring(1).trim();
+                if (content.isEmpty()) {
                     continue;
                 }
 
-                if (currentDeclaration != null && (trimmed.startsWith("{") || trimmed.startsWith("}"))) {
+                if (currentDeclaration == null && content.contains("(")
+                        && (content.contains("public") || content.contains("protected") || content.contains("private"))) {
+                    currentDeclaration = new StringBuilder(content);
+                } else if (currentDeclaration != null) {
+                    currentDeclaration.append(" ").append(content);
+                }
+
+                if (currentDeclaration != null && currentDeclaration.indexOf("(") >= 0
+                        && currentDeclaration.indexOf(")") >= 0) {
                     String normalized = normalizeMethodSignature(currentDeclaration.toString());
                     if (!normalized.isEmpty()) {
                         signatures.add(normalized);
                     }
                     currentDeclaration = null;
                 }
+                continue;
+            }
+
+            if (currentDeclaration != null && (trimmed.startsWith("{") || trimmed.startsWith("}"))) {
+                String normalized = normalizeMethodSignature(currentDeclaration.toString());
+                if (!normalized.isEmpty()) {
+                    signatures.add(normalized);
+                }
+                currentDeclaration = null;
             }
         }
         return signatures;
     }
 
-    private static Map<String, String> readAddedConstructorDeclarations(String patchPath) throws IOException {
+    private static Map<String, String> readAddedConstructorDeclarations(List<String> lines) {
         Map<String, String> constructors = new HashMap<>();
-        if (patchPath == null || patchPath.trim().isEmpty()) {
-            return constructors;
-        }
 
         StringBuilder currentConstructor = null;
-        try (BufferedReader reader = Files.newBufferedReader(Paths.get(patchPath))) {
-            String line;
-            while ((line = reader.readLine()) != null) {
-                String trimmed = line.trim();
-                if (trimmed.startsWith("+++") || !trimmed.startsWith("+")) {
-                    currentConstructor = null;
-                    continue;
-                }
+        for (String line : lines) {
+            String trimmed = line.trim();
+            if (trimmed.startsWith("+++") || !trimmed.startsWith("+")) {
+                currentConstructor = null;
+                continue;
+            }
 
-                String content = trimmed.substring(1).trim();
-                if (currentConstructor == null && content.contains("(")
-                        && (content.contains("public") || content.contains("protected") || content.contains("private"))) {
-                    currentConstructor = new StringBuilder(content);
-                } else if (currentConstructor != null) {
-                    currentConstructor.append(" ").append(content);
-                }
+            String content = trimmed.substring(1).trim();
+            if (currentConstructor == null && content.contains("(")
+                    && (content.contains("public") || content.contains("protected") || content.contains("private"))) {
+                currentConstructor = new StringBuilder(content);
+            } else if (currentConstructor != null) {
+                currentConstructor.append(" ").append(content);
+            }
 
-                if (currentConstructor != null && currentConstructor.indexOf("(") >= 0
-                        && currentConstructor.indexOf(")") >= 0) {
-                    String normalized = normalizeMethodSignature(currentConstructor.toString());
-                    if (!normalized.isEmpty()) {
-                        String declaration = currentConstructor.toString();
-                        String visibility = declaration.contains("protected") ? "protected"
-                                : declaration.contains("private") ? "private" : "public";
-                        constructors.put(normalized, visibility);
-                    }
-                    currentConstructor = null;
+            if (currentConstructor != null && currentConstructor.indexOf("(") >= 0
+                    && currentConstructor.indexOf(")") >= 0) {
+                String normalized = normalizeMethodSignature(currentConstructor.toString());
+                if (!normalized.isEmpty()) {
+                    String declaration = currentConstructor.toString();
+                    String visibility = declaration.contains("protected") ? "protected"
+                            : declaration.contains("private") ? "private" : "public";
+                    constructors.put(normalized, visibility);
                 }
+                currentConstructor = null;
             }
         }
         return constructors;
     }
 
     public static Model buildModelForFile(String sourcePath) {
-        return buildModelForFile(sourcePath, null);
+        return buildModelForFile(sourcePath, (String) null);
     }
 
     public static Model buildModelForFile(String sourcePath, String patchPath) {
+        List<String> patchLines;
+        try {
+            patchLines = patchPath == null || patchPath.trim().isEmpty()
+                    ? List.of()
+                    : Files.readAllLines(Paths.get(patchPath), StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            throw new IllegalArgumentException("Unable to read patch file: " + patchPath, e);
+        }
+        return buildModelForFile(sourcePath, patchLines);
+    }
+
+    private static Model buildModelForFile(String sourcePath, List<String> patchLines) {
         Model model = ModelFactory.createDefaultModel();
         model.setNsPrefix("woc", WOC_NS);
         model.setNsPrefix("icodm", EX_NS);
@@ -396,13 +414,9 @@ public class JavaPatchToRdf {
         Set<String> addedSignatures;
         Set<String> removedSignatures;
         Map<String, String> addedConstructorDeclarations;
-        try {
-            addedSignatures = readPatchSignatures(patchPath, '+');
-            removedSignatures = readPatchSignatures(patchPath, '-');
-            addedConstructorDeclarations = readAddedConstructorDeclarations(patchPath);
-        } catch (IOException e) {
-            throw new IllegalArgumentException("Unable to read patch file: " + patchPath, e);
-        }
+        addedSignatures = readPatchSignatures(patchLines, '+');
+        removedSignatures = readPatchSignatures(patchLines, '-');
+        addedConstructorDeclarations = readAddedConstructorDeclarations(patchLines);
 
         Resource wocMethodClass = model.createResource(WOC_NS + "Method");
         Resource wocConstructorClass = model.createResource(WOC_NS + "Constructor");
@@ -627,6 +641,158 @@ public class JavaPatchToRdf {
         return model;
     }
 
+    public static Model buildModelForPatch(String sourceBaseDirectory, String patchPath) throws IOException {
+        Path baseDirectory = Paths.get(sourceBaseDirectory).toAbsolutePath().normalize();
+        if (!Files.isDirectory(baseDirectory)) {
+            throw new IOException("Source base directory does not exist: " + baseDirectory);
+        }
+
+        List<String> patchLines = Files.readAllLines(Paths.get(patchPath), StandardCharsets.UTF_8);
+        List<PatchFile> patchFiles = splitPatchFiles(patchLines);
+        if (patchFiles.isEmpty()) {
+            throw new IOException("Patch file contains no Java file diffs: " + patchPath);
+        }
+
+        Model combinedModel = ModelFactory.createDefaultModel();
+        for (PatchFile patchFile : patchFiles) {
+            String changedPath = patchFile.newPath != null ? patchFile.newPath : patchFile.oldPath;
+            if (changedPath == null || !changedPath.endsWith(".java")) {
+                continue;
+            }
+
+            if (patchFile.newPath == null) {
+                addDeletedType(combinedModel, patchFile);
+                continue;
+            }
+
+            Path sourceFile = resolvePatchSource(baseDirectory, patchFile.newPath);
+            if (sourceFile == null) {
+                throw new IOException("Java source from patch was not found under "
+                        + baseDirectory + ": " + patchFile.newPath);
+            }
+            combinedModel.add(buildModelForFile(sourceFile.toString(), patchFile.lines));
+        }
+
+        combinedModel.setNsPrefix("woc", WOC_NS);
+        combinedModel.setNsPrefix("icodm", EX_NS);
+        combinedModel.setNsPrefix("rdf", RDF.getURI());
+        combinedModel.setNsPrefix("owl", "http://www.w3.org/2002/07/owl#");
+        combinedModel.setNsPrefix("rdfs", "http://www.w3.org/2000/01/rdf-schema#");
+        return combinedModel;
+    }
+
+    private static List<PatchFile> splitPatchFiles(List<String> lines) {
+        List<PatchFile> files = new ArrayList<>();
+        List<String> section = null;
+        for (String line : lines) {
+            if (line.startsWith("diff --git ")) {
+                if (section != null) {
+                    addPatchFile(files, section);
+                }
+                section = new ArrayList<>();
+            }
+            if (section != null) {
+                section.add(line);
+            }
+        }
+        if (section != null) {
+            addPatchFile(files, section);
+        } else if (lines.stream().anyMatch(line -> line.startsWith("--- "))) {
+            addPatchFile(files, lines);
+        }
+        return files;
+    }
+
+    private static void addPatchFile(List<PatchFile> files, List<String> section) {
+        String oldPath = null;
+        String newPath = null;
+        for (String line : section) {
+            if (line.startsWith("--- ")) {
+                oldPath = parsePatchPath(line.substring(4));
+            } else if (line.startsWith("+++ ")) {
+                newPath = parsePatchPath(line.substring(4));
+            }
+        }
+        if ((oldPath != null && oldPath.endsWith(".java"))
+                || (newPath != null && newPath.endsWith(".java"))) {
+            files.add(new PatchFile(oldPath, newPath, new ArrayList<>(section)));
+        }
+    }
+
+    private static String parsePatchPath(String headerPath) {
+        String path = headerPath.split("\\t", 2)[0];
+        if (path.equals("/dev/null")) {
+            return null;
+        }
+        if (path.startsWith("a/") || path.startsWith("b/")) {
+            return path.substring(2);
+        }
+        return path;
+    }
+
+    private static Path resolvePatchSource(Path baseDirectory, String patchPath) throws IOException {
+        Path relativePath = Paths.get(patchPath).normalize();
+        if (relativePath.isAbsolute() || relativePath.startsWith("..")) {
+            throw new IOException("Patch path is outside the source base directory: " + patchPath);
+        }
+        Path directPath = baseDirectory.resolve(relativePath).normalize();
+        if (directPath.startsWith(baseDirectory) && Files.isRegularFile(directPath)) {
+            return directPath;
+        }
+
+        List<Path> sourceFiles;
+        try (java.util.stream.Stream<Path> paths = Files.walk(baseDirectory)) {
+            sourceFiles = paths.filter(Files::isRegularFile)
+                    .filter(path -> path.toString().endsWith(".java"))
+                    .collect(Collectors.toList());
+        }
+        for (int start = 0; start < relativePath.getNameCount(); start++) {
+            Path suffix = relativePath.subpath(start, relativePath.getNameCount());
+            List<Path> matches = sourceFiles.stream()
+                    .filter(path -> path.endsWith(suffix))
+                    .collect(Collectors.toList());
+            if (matches.size() > 1) {
+                throw new IOException("Patch path matches multiple Java sources under "
+                        + baseDirectory + ": " + patchPath);
+            }
+            if (!matches.isEmpty()) {
+                return matches.get(0);
+            }
+        }
+        return null;
+    }
+
+    private static void addDeletedType(Model model, PatchFile patchFile) throws IOException {
+        String packageName = "";
+        String typeKind = null;
+        String typeName = null;
+        for (String line : patchFile.lines) {
+            if (!line.startsWith("-") || line.startsWith("---")) {
+                continue;
+            }
+            String content = line.substring(1).trim();
+            Matcher packageMatcher = PACKAGE_DECLARATION.matcher(content);
+            if (packageMatcher.find()) {
+                packageName = packageMatcher.group(1);
+            }
+            Matcher typeMatcher = TYPE_DECLARATION.matcher(content);
+            if (typeName == null && typeMatcher.find()) {
+                typeKind = typeMatcher.group(1);
+                typeName = typeMatcher.group(2);
+            }
+        }
+        if (typeName == null) {
+            throw new IOException("Deleted Java source has no top-level type declaration: " + patchFile.oldPath);
+        }
+
+        String qualifiedName = packageName.isEmpty() ? typeName : packageName + "." + typeName;
+        Resource deletedType = model.createResource(EX_NS + qualifiedName)
+                .addProperty(RDF.type, model.createResource(WOC_NS
+                        + ("interface".equals(typeKind) ? "Interface" : "Class")))
+                .addProperty(RDF.type, model.createResource("http://www.w3.org/2002/07/owl#Class"));
+        deletedType.addProperty(model.createProperty(EX_NS + "isDeleted"), deletedType);
+    }
+
     private static Resource modifierResource(Model model, String modifier) {
         if (modifier == null) {
             return null;
@@ -650,17 +816,17 @@ public class JavaPatchToRdf {
         classResource.addProperty(rdfsSubClassOf, supertypeResource);
     }
 
-    public static void main(String[] args) {
-        String sourcePath = args.length > 0 ? args[0] : "/Users/tanguyro/Incodame/paragraph/ParagraphUI/src/main/java/org/incodame/paragraph/sample/webapp/demo/Parameter.java";
-        String patchPath = args.length > 1 ? args[1] : null;
+    public static void main(String[] args) throws IOException {
+        if (args.length != 2) {
+            throw new IllegalArgumentException(
+                    "Usage: java -jar pajes-0.0.1-SNAPSHOT.jar <source-base-directory> <patch-file>");
+        }
 
-        Model model = buildModelForFile(sourcePath, patchPath);
+        Model model = buildModelForPatch(args[0], args[1]);
 
         try (FileOutputStream out = new FileOutputStream("refmodule-patch.ttl")) {
             model.write(out, "TURTLE");
             System.out.println("Fichier RDF 'refmodule-patch.ttl' généré avec succès !");
-        } catch (IOException e) {
-            e.printStackTrace();
         }
     }
 }
