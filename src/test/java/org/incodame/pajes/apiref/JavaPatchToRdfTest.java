@@ -341,4 +341,49 @@ class JavaPatchToRdfTest {
         assertTrue(!unchangedConstructor.hasProperty(isPatchOfConstructor));
         assertTrue(changedConstructor.getProperty(isPatchOfConstructor).getResource().getURI().endsWith("_stable"));
     }
+
+    @Test
+    void processesEveryJavaFileInPatchAndMarksDeletedTypes() throws Exception {
+        Path workspace = Files.createTempDirectory("patch-source-base");
+        Path sourceBase = Files.createDirectories(workspace.resolve("src/main/java"));
+        Path packageDirectory = Files.createDirectories(sourceBase.resolve("demo"));
+        Files.writeString(packageDirectory.resolve("First.java"),
+                "package demo; public class First { public void first() { } }");
+        Files.writeString(packageDirectory.resolve("Second.java"),
+                "package demo; public interface Second { void second(); }");
+
+        Path patchFile = Files.createTempFile("multi-file-patch", ".patch");
+        Files.writeString(patchFile,
+                "diff --git a/src/main/java/demo/First.java b/src/main/java/demo/First.java\n" +
+                "--- a/src/main/java/demo/First.java\n" +
+                "+++ b/src/main/java/demo/First.java\n" +
+                "@@\n" +
+                "- public void first() { }\n" +
+                "+ public void first() { }\n" +
+                "diff --git a/src/main/java/demo/Second.java b/src/main/java/demo/Second.java\n" +
+                "--- a/src/main/java/demo/Second.java\n" +
+                "+++ b/src/main/java/demo/Second.java\n" +
+                "@@\n" +
+                "- void second();\n" +
+                "+ void second();\n" +
+                "diff --git a/src/main/java/demo/Removed.java b/src/main/java/demo/Removed.java\n" +
+                "--- a/src/main/java/demo/Removed.java\n" +
+                "+++ /dev/null\n" +
+                "@@\n" +
+                "- package demo;\n" +
+                "- public class Removed { }\n");
+
+        Model model = JavaPatchToRdf.buildModelForPatch(sourceBase.toString(), patchFile.toString());
+        String namespace = "https://github.com/Incodam/";
+        Resource first = model.getResource(namespace + "demo.First");
+        Resource second = model.getResource(namespace + "demo.Second");
+        Resource removed = model.getResource(namespace + "demo.Removed");
+        Property isDeleted = model.createProperty(namespace + "isDeleted");
+
+        assertTrue(first.hasProperty(RDF.type, model.getResource("http://webofcode.orgClass")));
+        assertTrue(second.hasProperty(RDF.type, model.getResource("http://webofcode.orgInterface")));
+        assertTrue(removed.hasProperty(RDF.type, model.getResource("http://webofcode.orgClass")));
+        assertTrue(removed.hasProperty(RDF.type, model.getResource("http://www.w3.org/2002/07/owl#Class")));
+        assertTrue(removed.hasProperty(isDeleted, removed));
+    }
 }

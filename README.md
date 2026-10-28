@@ -28,11 +28,15 @@ java -cp target/pajes-0.0.1-SNAPSHOT.jar org.incodame.pajes.apiref.JavaLibToRdf 
 This writes the API surface to `refmodule-1.2.3.ttl` in the current directory. The
 version is also recorded as `icodm:applFor` on the generated API resources.
 
-To generate RDF facts about a patched java class using Spoon:
+To generate RDF facts for all Java source files mentioned in a patch using Spoon,
+pass the source base directory followed by the patch file:
 ```sh
-java -jar target/pajes-0.0.1-SNAPSHOT.jar "path/to/java/source/class" "path/to/git/patch/file"
+java -jar target/pajes-0.0.1-SNAPSHOT.jar "path/to/source/base/directory" "path/to/git/patch/file"
 ```
-This will write the RDF facts about the java patch to `refmodule-patch.ttl` in the current directory. 
+Java paths from the patch are resolved under the source base directory and
+processed one by one. Deleted top-level classes and interfaces are recorded in
+the RDF with `icodm:isDeleted` pointing to the deleted type. This writes the
+RDF facts about the Java patch to `refmodule-patch.ttl` in the current directory.
 
 Both .ttl files can then be imported for analysis to a triple store, and queried using SPARQL
 to assess the impact of the java source changes:
