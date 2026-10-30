@@ -13,6 +13,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.io.StringWriter;
+import java.io.ByteArrayOutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
@@ -38,6 +39,43 @@ import spoon.support.StandardEnvironment;
 import spoon.support.compiler.SpoonPom;
 
 class ClientUseCompilerTest {
+
+        @Test
+        void clientUseToRdfImplementsRdfWriterIAndWritesModels() {
+                org.apache.jena.rdf.model.RDFWriterI writer = new ClientUseToRdf();
+                org.apache.jena.rdf.model.Model model = org.apache.jena.rdf.model.ModelFactory.createDefaultModel();
+                model.createResource("https://example.org/subject")
+                                .addProperty(RDF.type, model.createResource("https://example.org/Type"));
+
+                StringWriter characterOutput = new StringWriter();
+                writer.write(model, characterOutput, "TURTLE");
+                assertTrue(characterOutput.toString().contains("https://example.org/subject"));
+
+                ByteArrayOutputStream byteOutput = new ByteArrayOutputStream();
+                writer.write(model, byteOutput, "TURTLE");
+                assertTrue(byteOutput.toString(java.nio.charset.StandardCharsets.UTF_8)
+                                .contains("https://example.org/subject"));
+
+                assertNull(writer.setProperty("example.property", "first"));
+                assertEquals("first", writer.setProperty("example.property", "second"));
+
+                org.apache.jena.rdf.model.RDFErrorHandler errorHandler =
+                                new org.apache.jena.rdf.model.RDFErrorHandler() {
+                                        @Override
+                                        public void warning(Exception exception) {
+                                        }
+
+                                        @Override
+                                        public void error(Exception exception) {
+                                        }
+
+                                        @Override
+                                        public void fatalError(Exception exception) {
+                                        }
+                                };
+                assertNull(writer.setErrorHandler(errorHandler));
+                assertEquals(errorHandler, writer.setErrorHandler(null));
+        }
 
         @Test
         void launchesConfiguredMavenInsteadOfProjectLocalScript(@TempDir Path tempDir) throws Exception {
@@ -545,6 +583,78 @@ class ClientUseCompilerTest {
         constraints.write(turtle, "TURTLE");
         assertFalse(turtle.toString().contains("ApiWrapper"),
                 "The wrapper marker should not be serialized as a constraint annotation");
+    }
+
+    @Test
+    void linksCallbackImplementationConstraintsToTargetApiInterface(@TempDir Path tempDir) throws Exception {
+        Path apiSource = tempDir.resolve("src/org/apache/jena/rdf/model/Api.java");
+        Files.createDirectories(apiSource.getParent());
+        Files.writeString(apiSource,
+                "package org.apache.jena.rdf.model;\n"
+                        + "public interface Api {\n"
+                        + "    String write(String value);\n"
+                        + "}\n");
+
+        Path clientSource = tempDir.resolve("src/example/Client.java");
+        Files.createDirectories(clientSource.getParent());
+        String clientText = "package example;\n"
+                + "import java.lang.annotation.ElementType;\n"
+                + "import java.lang.annotation.Retention;\n"
+                + "import java.lang.annotation.RetentionPolicy;\n"
+                + "import java.lang.annotation.Target;\n"
+                + "import org.apache.jena.rdf.model.Api;\n"
+                + "@Target(ElementType.METHOD) @Retention(RetentionPolicy.SOURCE) "
+                + "@interface ApiCallbackWrapper { }\n"
+                + "@Target({ElementType.METHOD, ElementType.PARAMETER}) "
+                + "@interface EnumValue { String[] values(); }\n"
+                + "public class Client implements Api {\n"
+                + "    @ApiCallbackWrapper\n"
+                + "    @EnumValue(values = {\"result\"})\n"
+                + "    public String write(@EnumValue(values = {\"one\", \"two\"}) String value) { return value; }\n"
+                + "}\n";
+        Files.writeString(clientSource, clientText);
+
+        ClientUseProcessor processor = new ClientUseProcessor("org.apache.jena.rdf.model", "main",
+                Map.of("EnumValue", List.of("values")));
+        Launcher launcher = new Launcher();
+        launcher.getEnvironment().setComplianceLevel(17);
+        launcher.getEnvironment().setNoClasspath(true);
+        launcher.addInputResource(apiSource.toString());
+        launcher.addInputResource(clientSource.toString());
+        launcher.addProcessor(processor);
+        launcher.run();
+
+        String namespace = "https://github.com/Incodam/";
+        org.apache.jena.rdf.model.Resource client = processor.getModel()
+                .getResource(namespace + "example.Client");
+        Property calls = processor.getModel().createProperty("http://webofcode.orgcalls");
+        List<String> callUris = client.listProperties(calls).toList().stream()
+                .map(statement -> statement.getResource().getURI())
+                .toList();
+        assertEquals(1, callUris.size());
+        assertTrue(callUris.get(0).startsWith(namespace + "org.apache.jena.rdf.model.Api_write_"));
+
+        org.apache.jena.rdf.model.Model constraints = processor.getConstraintModel();
+        org.apache.jena.rdf.model.Resource constraintClient = constraints.getResource(namespace + "example.Client");
+        org.apache.jena.rdf.model.Resource constraintSet = constraintClient.getProperty(
+                constraints.createProperty(namespace + "onCallback")).getResource();
+        int declarationLine = clientText.lines().toList().indexOf(
+                "    public String write(@EnumValue(values = {\"one\", \"two\"}) String value) { return value; }") + 1;
+        assertTrue(constraintSet.getURI().endsWith("_constraint_set_" + declarationLine));
+        org.apache.jena.rdf.model.Resource constraint = constraintSet.getProperty(
+                constraints.createProperty(namespace + "hasContraints")).getResource()
+                .as(org.apache.jena.rdf.model.RDFList.class).getHead().asResource();
+        assertTrue(constraint.getURI().startsWith(
+                namespace + "org.apache.jena.rdf.model.Api_write_"));
+        assertTrue(constraint.getURI().endsWith("_constraint_" + declarationLine + "_1"));
+
+        org.apache.jena.rdf.model.Resource returnConstraint = constraintClient.getProperty(
+                constraints.createProperty(namespace + "onCallbackReturn")).getResource();
+        assertTrue(returnConstraint.getURI().startsWith(
+                namespace + "org.apache.jena.rdf.model.Api_write_"));
+        assertTrue(returnConstraint.getURI().endsWith("_constraint_" + declarationLine));
+        assertFalse(constraintClient.hasProperty(constraints.createProperty(namespace + "onMethodCall")));
+        assertFalse(constraintClient.hasProperty(constraints.createProperty(namespace + "onMethodReturn")));
     }
 
     @Test

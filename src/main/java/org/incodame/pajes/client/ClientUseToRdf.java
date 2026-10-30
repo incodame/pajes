@@ -14,8 +14,11 @@ import java.nio.file.Paths;
 
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.io.PrintStream;
+import java.io.Writer;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -23,12 +26,63 @@ import java.util.Set;
 import java.util.regex.Pattern;
 
 import org.apache.jena.rdf.model.Model;
+import org.apache.jena.rdf.model.ModelFactory;
+import org.apache.jena.rdf.model.RDFErrorHandler;
+import org.apache.jena.rdf.model.RDFWriterI;
 import org.incodame.pajes.annotations.ApiWrapper;
+import org.incodame.pajes.annotations.ApiCallbackWrapper;
 import org.incodame.pajes.annotations.EnumValue;
 import org.incodame.pajes.annotations.ValueRange;
 
-public class ClientUseToRdf {
+public class ClientUseToRdf implements RDFWriterI {
     private static final Pattern RELEASE_BRANCH = Pattern.compile("\\d+(?:\\.\\d+)*");
+    private final Map<String, Object> writerProperties = new HashMap<>();
+    private RDFErrorHandler errorHandler;
+
+    @ApiCallbackWrapper
+    @Override
+    public void write(Model model, Writer out, @EnumValue(values = {
+            "RDF/XML", "RDF/XML-ABBREV", "N-TRIPLE", "TURTLE", "TTL", "N3" }) String lang) {
+        writeWithConfiguredWriter(model, out, lang);
+    }
+
+    @ApiCallbackWrapper
+    @Override
+    public void write(Model model, OutputStream out, @EnumValue(values = {
+            "RDF/XML", "RDF/XML-ABBREV", "N-TRIPLE", "TURTLE", "TTL", "N3" }) String lang) {
+        writeWithConfiguredWriter(model, out, lang);
+    }
+
+    private void writeWithConfiguredWriter(Model model, Writer out, String lang) {
+        RDFWriterI writer = model.getWriter(lang);
+        configureWriter(writer);
+        writer.write(model, out, lang);
+    }
+
+    private void writeWithConfiguredWriter(Model model, OutputStream out, String lang) {
+        RDFWriterI writer = model.getWriter(lang);
+        configureWriter(writer);
+        writer.write(model, out, lang);
+    }
+
+    private void configureWriter(RDFWriterI writer) {
+        writerProperties.forEach(writer::setProperty);
+        writer.setErrorHandler(errorHandler);
+    }
+
+    @ApiCallbackWrapper
+    @Override
+    public Object setProperty(String propName, Object propValue) {
+        return writerProperties.put(propName, propValue);
+    }
+
+    @ApiCallbackWrapper
+    @Override
+    public RDFErrorHandler setErrorHandler(RDFErrorHandler errHandler) {
+        RDFErrorHandler previousHandler = errorHandler;
+        errorHandler = errHandler;
+        return previousHandler;
+    }
 
     public static void main(String[] args) throws IOException {
         if (args.length != 3 || args[0].trim().isEmpty() || args[1].trim().isEmpty()

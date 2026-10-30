@@ -2,7 +2,8 @@
 
 The annotations in Pajes' `org.incodame.pajes.annotations` package
 (`EnumValue`, `ValueRange`, and `ApiWrapper`) are for test usage within Pajes
-only. Client projects should not depend on or use these annotations.
+only. `ApiCallbackWrapper` is also provided for internal tests. Client projects
+should not depend on or use these annotations.
 
 Define project-owned annotations for the constraints your API needs. Configure
 each constraint annotation in `pajes-config.yaml` under `client-annotations`,
@@ -45,3 +46,14 @@ method—not the wrapper—in RDF and uses the client-side source line where the
 wrapper is called for the constraint identifier. Configured annotations on a
 wrapper's return type are transferred to the underlying API method's return
 constraint when the wrapper directly returns that API call's result.
+
+For a client method implementing a target API interface method, use a
+project-owned `ApiCallbackWrapper` annotation on the implementing method.
+Pajes recognizes the marker by its exact simple name and links the client type
+to the matching target API interface method. Configured annotations on the
+implementation's parameters and return type are emitted against that API
+method. Since this pattern has no client-side call site, the implementing
+method's source line identifies its constraints. Parameter constraints are
+linked from the implementing class with `icodm:onCallback`, and return
+constraints with `icodm:onCallbackReturn`. The method must resolve to exactly
+one method in the selected target package.

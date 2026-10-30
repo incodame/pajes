@@ -13,8 +13,9 @@ icodm:org.incodame.pajes.apiref.JavaPatchToRdf
         icodm:applBranch  "main" .
 
 icodm:org.incodame.pajes.client.ClientUseToRdf
-        a                 woc:Class , owl:Class;
-        woc:calls         icodm:org.apache.jena.rdf.model.Model_size_fe3e41004f80_stable , icodm:org.apache.jena.rdf.model.Model_write_2031d85c99f0_stable;
+        a                 owl:Class , woc:Class;
+        woc:calls         icodm:org.apache.jena.rdf.model.RDFWriterI_setErrorHandler_c0f56414e037_stable , icodm:org.apache.jena.rdf.model.Model_getWriter_ac75d15ad65c_stable , icodm:org.apache.jena.rdf.model.RDFWriterI_write_fe79389f5e2c_stable , icodm:org.apache.jena.rdf.model.RDFWriterI_setProperty_ac5f47bf80b3_stable , icodm:org.apache.jena.rdf.model.Model_write_2031d85c99f0_stable , icodm:org.apache.jena.rdf.model.Model_size_fe3e41004f80_stable , icodm:org.apache.jena.rdf.model.RDFWriterI_write_8ba88eb3a510_stable;
+        woc:implements    icodm:org.apache.jena.rdf.model.RDFWriterI;
         icodm:applBranch  "main" .
 
 icodm:org.incodame.pajes.apiref

@@ -60,6 +60,8 @@ public class ClientUseProcessor extends AbstractProcessor<CtElement> {
     private final Model constraintModel = ModelFactory.createDefaultModel();
     private final Property onMethodCall = constraintModel.createProperty(ICODM + "onMethodCall");
     private final Property onMethodReturn = constraintModel.createProperty(ICODM + "onMethodReturn");
+    private final Property onCallback = constraintModel.createProperty(ICODM + "onCallback");
+    private final Property onCallbackReturn = constraintModel.createProperty(ICODM + "onCallbackReturn");
     private final Property hasContraints = constraintModel.createProperty(ICODM + "hasContraints");
     private final Property annotations = constraintModel.createProperty(ICODM + "annotations");
     private final Property annotationProperties = constraintModel.createProperty(ICODM + "annotationProperties");
@@ -138,6 +140,9 @@ public class ClientUseProcessor extends AbstractProcessor<CtElement> {
                 clientResource.addProperty(wocCalls, model.createResource(apiConstructorUri));
             }
         }
+        else if (element instanceof CtMethod<?> && isApiCallbackWrapper((CtMethod<?>) element)) {
+            addApiCallbackWrapper((CtMethod<?>) element);
+        }
         else if (element instanceof CtClass<?> || element instanceof CtInterface<?>) {
             CtType<?> clientType = (CtType<?>) element;
             recordClientPackage(clientType);
@@ -194,6 +199,43 @@ public class ClientUseProcessor extends AbstractProcessor<CtElement> {
                 .anyMatch(annotation -> "ApiWrapper".equals(annotation.getAnnotationType().getSimpleName()));
     }
 
+    private boolean isApiCallbackWrapper(CtMethod<?> method) {
+        return method.getAnnotations().stream()
+                .anyMatch(annotation -> "ApiCallbackWrapper".equals(annotation.getAnnotationType().getSimpleName()));
+    }
+
+    private void addApiCallbackWrapper(CtMethod<?> callbackMethod) {
+        List<CtMethod<?>> apiMethods = callbackMethod.getTopDefinitions().stream()
+                .filter(method -> isInTargetPackage(method.getDeclaringType().getQualifiedName()))
+                .toList();
+        if (apiMethods.size() != 1) {
+            throw new IllegalStateException("@ApiCallbackWrapper method must override exactly one method from target "
+                    + "package " + targetPackage + ": " + callbackMethod.getDeclaringType().getQualifiedName()
+                    + "#" + callbackMethod.getSimpleName() + " (found " + apiMethods.size() + ")");
+        }
+
+        CtMethod<?> apiMethod = apiMethods.get(0);
+        if (apiMethod.getParameters().size() != callbackMethod.getParameters().size()) {
+            throw new IllegalStateException("@ApiCallbackWrapper method parameter count does not match API method: "
+                    + callbackMethod.getDeclaringType().getQualifiedName() + "#" + callbackMethod.getSimpleName());
+        }
+
+        CtType<?> clientType = callbackMethod.getDeclaringType();
+        Resource clientResource = getClientTypeResource(clientType);
+        String apiMethodUri = buildMemberUri(apiMethod.getReference());
+        clientResource.addProperty(wocCalls, model.createResource(apiMethodUri));
+
+        int sourceLine = callbackMethod.getPosition().isValidPosition()
+                ? callbackMethod.getPosition().getLine() : -1;
+        List<List<CtAnnotation<?>>> parameterAnnotations = new ArrayList<>();
+        for (CtParameter<?> parameter : callbackMethod.getParameters()) {
+            parameterAnnotations.add(matchingAnnotations(parameter.getAnnotations()));
+        }
+        List<CtAnnotation<?>> returnAnnotations = matchingReturnAnnotations(callbackMethod);
+        addMethodConstraints(apiMethod, apiMethodUri, sourceLine, clientResource,
+                parameterAnnotations, returnAnnotations, onCallback, onCallbackReturn);
+    }
+
     private boolean isInTargetPackage(CtExecutableReference<?> executableReference) {
         return executableReference != null && executableReference.getDeclaringType() != null
                 && isInTargetPackage(executableReference.getDeclaringType().getQualifiedName());
@@ -232,22 +274,41 @@ public class ClientUseProcessor extends AbstractProcessor<CtElement> {
         if (clientAnnotations.isEmpty()) {
             return;
         }
-        Resource constraintClientResource = constraintModel.createResource(clientResource.getURI())
-                .addProperty(constraintModel.createProperty(ICODM + "applBranch"), branch);
         CtExecutable<?> declaration = executableReference.getExecutableDeclaration();
         if (!(declaration instanceof CtMethod<?>)) {
             return;
         }
 
         int sourceLine = clientCall.getPosition().isValidPosition() ? clientCall.getPosition().getLine() : -1;
+        CtMethod<?> apiMethod = (CtMethod<?>) declaration;
+        List<List<CtAnnotation<?>>> extraParameterAnnotations = new ArrayList<>();
+        for (int index = 0; index < apiMethod.getParameters().size(); index++) {
+            List<CtAnnotation<?>> extraAnnotations = wrapperMethod == null
+                    ? List.of()
+                    : matchingWrapperParameterAnnotations(wrapperMethod, apiInvocation, index);
+            extraParameterAnnotations.add(extraAnnotations);
+        }
+        List<CtAnnotation<?>> extraReturnAnnotations = wrapperMethod != null
+                && isDirectlyReturnedByWrapper(wrapperMethod, apiInvocation)
+                        ? matchingWrapperReturnAnnotations(wrapperMethod)
+                        : List.of();
+        addMethodConstraints(apiMethod, apiMethodUri, sourceLine, clientResource,
+                extraParameterAnnotations, extraReturnAnnotations, onMethodCall, onMethodReturn);
+    }
+
+    private void addMethodConstraints(CtMethod<?> apiMethod, String apiMethodUri, int sourceLine,
+            Resource clientResource, List<List<CtAnnotation<?>>> extraParameterAnnotations,
+            List<CtAnnotation<?>> extraReturnAnnotations, Property parameterConstraintProperty,
+            Property returnConstraintProperty) {
+        Resource constraintClientResource = constraintModel.createResource(clientResource.getURI())
+                .addProperty(constraintModel.createProperty(ICODM + "applBranch"), branch);
         List<Resource> parameterConstraints = new ArrayList<>();
-        List<CtParameter<?>> parameters = declaration.getParameters();
+        List<CtParameter<?>> parameters = apiMethod.getParameters();
         for (int index = 0; index < parameters.size(); index++) {
             CtParameter<?> parameter = parameters.get(index);
-            List<CtAnnotation<?>> matchedAnnotations = new ArrayList<>(
-                    matchingAnnotations(parameter.getAnnotations()));
-            if (wrapperMethod != null) {
-                matchedAnnotations.addAll(matchingWrapperParameterAnnotations(wrapperMethod, apiInvocation, index));
+            List<CtAnnotation<?>> matchedAnnotations = new ArrayList<>(matchingAnnotations(parameter.getAnnotations()));
+            if (index < extraParameterAnnotations.size()) {
+                appendDistinctAnnotations(matchedAnnotations, extraParameterAnnotations.get(index));
             }
             for (int annotationIndex = 0; annotationIndex < matchedAnnotations.size(); annotationIndex++) {
                 parameterConstraints.add(createConstraint(apiMethodUri, sourceLine,
@@ -260,18 +321,15 @@ public class ClientUseProcessor extends AbstractProcessor<CtElement> {
             Resource constraintSet = constraintModel.createResource(constraintSetUri)
                     .addProperty(RDF.type, constraintModel.createResource(ICODM + "ApiClientConstraintSet"))
                     .addProperty(hasContraints, constraintModel.createList(parameterConstraints.iterator()));
-            constraintClientResource.addProperty(onMethodCall, constraintSet);
+            constraintClientResource.addProperty(parameterConstraintProperty, constraintSet);
         }
 
-        CtMethod<?> method = (CtMethod<?>) declaration;
-        List<CtAnnotation<?>> returnAnnotations = matchingReturnAnnotations(method);
-        if (wrapperMethod != null && isDirectlyReturnedByWrapper(wrapperMethod, apiInvocation)) {
-            appendDistinctAnnotations(returnAnnotations, matchingWrapperReturnAnnotations(wrapperMethod));
-        }
+        List<CtAnnotation<?>> returnAnnotations = matchingReturnAnnotations(apiMethod);
+        appendDistinctAnnotations(returnAnnotations, extraReturnAnnotations);
         for (int annotationIndex = 0; annotationIndex < returnAnnotations.size(); annotationIndex++) {
             Resource constraint = createConstraint(apiMethodUri, sourceLine, "",
                     returnAnnotations.get(annotationIndex), annotationIndex);
-            constraintClientResource.addProperty(onMethodReturn, constraint);
+            constraintClientResource.addProperty(returnConstraintProperty, constraint);
         }
     }
 
