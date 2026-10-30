@@ -15,6 +15,10 @@ import java.nio.file.Paths;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintStream;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
 
@@ -60,7 +64,9 @@ public class ClientUseToRdf {
                     }
                 };
         
-        Path settingsXmlPath = resolveMavenSettings(Paths.get("pajes-config.yaml"));
+        Path configurationFile = Paths.get("pajes-config.yaml");
+        Path settingsXmlPath = resolveMavenSettings(configurationFile);
+        Map<String, List<String>> clientAnnotations = resolveClientAnnotations(configurationFile);
         if (settingsXmlPath != null) {
             log.println("Resolving maven classpath using " + settingsXmlPath);
         }
@@ -76,8 +82,7 @@ public class ClientUseToRdf {
         launcher.getEnvironment().setComplianceLevel(17);
         launcher.getEnvironment().setNoClasspath(false);
 
-        // Instanciation du processeur RDF
-        ClientUseProcessor rdfProcessor = new ClientUseProcessor(targetPackage, branch);
+        ClientUseProcessor rdfProcessor = new ClientUseProcessor(targetPackage, branch, clientAnnotations);
         launcher.addProcessor(rdfProcessor);
         
         // Exécution de l'analyse Spoon
@@ -102,6 +107,12 @@ public class ClientUseToRdf {
         reportProgress(log, "RDF analysis report generated: client-use.ttl ("
                 + rdfProcessor.getModel().size() + " triples)");
 
+        try (FileWriter out = new FileWriter("client-use-constraints.ttl")) {
+            rdfProcessor.getConstraintModel().write(out, "TURTLE");
+        }
+        reportProgress(log, "RDF constraints report generated: client-use-constraints.ttl ("
+                + rdfProcessor.getConstraintModel().size() + " triples)");
+
     }
 
     static Path resolveMavenSettings(Path configurationFile) throws IOException {
@@ -123,6 +134,45 @@ public class ClientUseToRdf {
                     + " is not readable: " + settingsPath);
         }
         return settingsPath;
+    }
+
+    static Map<String, List<String>> resolveClientAnnotations(Path configurationFile) throws IOException {
+        if (!Files.exists(configurationFile)) {
+            return Map.of();
+        }
+        JsonNode configuration = new ObjectMapper(new YAMLFactory()).readTree(configurationFile.toFile());
+        JsonNode annotations = configuration == null ? null : configuration.get("client-annotations");
+        if (annotations == null || annotations.isNull()) {
+            return Map.of();
+        }
+        if (!annotations.isArray()) {
+            throw new IOException("client-annotations must be a YAML list in " + configurationFile);
+        }
+
+        Map<String, List<String>> result = new LinkedHashMap<>();
+        for (int index = 0; index < annotations.size(); index++) {
+            JsonNode annotation = annotations.get(index);
+            if (!annotation.isObject() || !annotation.path("name").isTextual()
+                    || annotation.path("name").asText().trim().isEmpty()
+                    || !annotation.path("properties").isArray()) {
+                throw new IOException("Each client-annotations entry must have a non-empty name and a properties list "
+                        + "in " + configurationFile + " (entry " + index + ")");
+            }
+
+            String name = annotation.path("name").asText().trim();
+            List<String> properties = new ArrayList<>();
+            for (JsonNode property : annotation.path("properties")) {
+                if (!property.isTextual() || property.asText().trim().isEmpty()) {
+                    throw new IOException("client-annotations properties must be non-empty strings in "
+                            + configurationFile + " (entry " + index + ")");
+                }
+                properties.add(property.asText().trim());
+            }
+            if (result.putIfAbsent(name, List.copyOf(properties)) != null) {
+                throw new IOException("Duplicate client annotation name in " + configurationFile + ": " + name);
+            }
+        }
+        return Map.copyOf(result);
     }
 
     private static String resolveGroupId(MavenLauncher launcher) {

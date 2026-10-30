@@ -1,0 +1,45 @@
+icodm:org.incodame.pajes.client.ClientUseToRdf        
+    icodm:onMethodCall icodm:org.apache.jena.rdf.model.Model_write_2031d85c99f0_stable_constraint_set_100 ;
+    icodm:applBranch  "main" .
+
+icodm:onMethodCall icodm:org.apache.jena.rdf.model.Model_write_2031d85c99f0_stable_constraint_set_100
+    a icodm:ApiClientConstraintSet ;
+    icodm:hasContraints ( [ icodm:org.apache.jena.rdf.model.Model_write_2031d85c99f0_stable_constraint_100_2 ]) .
+
+icodm:org.apache.jena.rdf.model.Model_write_2031d85c99f0_stable_constraint_100_2
+    a icodm:ApiClientConstraint ;
+    icodm:annotations icodm:org.apache.jena.rdf.model.Model_write_2031d85c99f0_stable_constraint_100_2_a .
+
+icodm:org.apache.jena.rdf.model.Model_write_2031d85c99f0_stable_constraint_100_2_a
+    a icodm:JavaConstraintAnnotation, woc:Annotation ;
+    rdfs:label "EnumValue"
+    icodm:annotationProperties org.apache.jena.rdf.model.Model_write_2031d85c99f0_stable_constraint_100_2_a_ev .
+                               
+org.apache.jena.rdf.model.Model_write_2031d85c99f0_stable_constraint_100_2_a_ev
+    a icodm:CoAProperty    
+    rdfs:label "outputLanguages"
+    rdf:value ( ["RDF/XML", "RDF/XML-ABBREV", "N-TRIPLE", "TURTLE", "TTL", "N3"] ).
+
+icodm:org.incodame.pajes.client.ClientUseToRdf
+    icodm:onMethodReturn icodm:org.apache.jena.rdf.model.Model_size_fe3e41004f80_stable_constraint_103 ;
+    icodm:applBranch  "main" .
+
+icodm:onMethodReturn icodm:org.apache.jena.rdf.model.Model_size_fe3e41004f80_stable_constraint_103
+    a icodm:ApiClientConstraint ;
+    icodm:annotations icodm:annotations icodm:org.apache.jena.rdf.model.Model_size_fe3e41004f80_stable_constraint_103_a .
+
+icodm:org.apache.jena.rdf.model.Model_size_fe3e41004f80_stable_constraint_103_a
+    a icodm:JavaConstraintAnnotation, woc:Annotation ;
+    rdfs:label "ValueRange"
+    icodm:annotationProperties org.apache.jena.rdf.model.Model_size_fe3e41004f80_stable_constraint_103_a_vr_lower,
+                               org.apache.jena.rdf.model.Model_size_fe3e41004f80_stable_constraint_103_a_vr_upper .
+    
+org.apache.jena.rdf.model.Model_size_fe3e41004f80_stable_constraint_103_a_vr_lower
+    a icodm:CoAProperty    
+    rdfs:label "lower"
+    rdf:value 1.
+
+org.apache.jena.rdf.model.Model_size_fe3e41004f80_stable_constraint_103_a_vr_upper
+    a icodm:CoAProperty    
+    rdfs:label "upper"
+    rdf:value 4000000.

@@ -57,10 +57,25 @@ in the current working directory:
 ```yaml
 maven:
   settings: /path/to/maven/settings.xml
+client-annotations:
+  - name: EnumValue
+    properties:
+      - outputLanguages
+  - name: ValueRange
+    properties:
+      - lower
+      - upper
 ```
 Relative settings paths are resolved relative to the configuration file. If the
 file or `maven.settings` property is absent, Maven uses its default settings.
 A configured settings file must exist and be readable.
+`client-annotations` is an optional YAML list. Each entry names a Java annotation
+and selects the annotation properties to include in client constraints. The
+processor reads matching annotations from target API method parameters and
+methods' return annotations, and writes call-site constraints to
+`client-use-constraints.ttl`. Constraint identifiers use the API call's source
+line; parameter constraint identifiers also include the one-based API parameter
+position.
 
 Example:
 ```sh

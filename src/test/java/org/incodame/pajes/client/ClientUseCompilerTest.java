@@ -16,6 +16,8 @@ import java.io.StringWriter;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
 import java.util.function.Consumer;
 
 import org.apache.jena.rdf.model.Property;
@@ -221,6 +223,35 @@ class ClientUseCompilerTest {
                 assertThrows(IOException.class, () -> ClientUseToRdf.resolveMavenSettings(configuration));
         }
 
+        @Test
+        void readsConfiguredClientAnnotationsFromYaml(@TempDir Path tempDir) throws Exception {
+                Path configuration = tempDir.resolve("pajes-config.yaml");
+                Files.writeString(configuration,
+                                "client-annotations:\n"
+                                                + "  - name: EnumValue\n"
+                                                + "    properties: [outputLanguages]\n"
+                                                + "  - name: sample.ValueRange\n"
+                                                + "    properties: [lower, upper]\n");
+
+                assertEquals(Map.of(
+                                "EnumValue", List.of("outputLanguages"),
+                                "sample.ValueRange", List.of("lower", "upper")),
+                                ClientUseToRdf.resolveClientAnnotations(configuration));
+        }
+
+        @Test
+        void rejectsMalformedClientAnnotationConfiguration(@TempDir Path tempDir) throws Exception {
+                Path configuration = tempDir.resolve("pajes-config.yaml");
+                Files.writeString(configuration, "client-annotations: {}\n");
+                assertThrows(IOException.class,
+                                () -> ClientUseToRdf.resolveClientAnnotations(configuration));
+
+                Files.writeString(configuration,
+                                "client-annotations:\n  - name: EnumValue\n    properties: [outputLanguages, ' ']\n");
+                assertThrows(IOException.class,
+                                () -> ClientUseToRdf.resolveClientAnnotations(configuration));
+        }
+
     @Test
     void associatesAnalyzedClassesWithTheProvidedBranch(@TempDir Path tempDir) throws Exception {
         Path sourceFile = tempDir.resolve("BranchExample.java");
@@ -297,6 +328,90 @@ class ClientUseCompilerTest {
                 "A call from a default interface method should be attached to its interface component");
         assertTrue(processor.getClientPackages().contains("example"),
                 "Client interface packages should be included in processor package results");
+    }
+
+    @Test
+    void emitsParameterAndReturnConstraintsToSeparateModel(@TempDir Path tempDir) throws Exception {
+        Path apiSource = tempDir.resolve("src/org/apache/jena/rdf/model/Api.java");
+        Files.createDirectories(apiSource.getParent());
+        Files.writeString(apiSource,
+                "package org.apache.jena.rdf.model;\n"
+                        + "import java.lang.annotation.ElementType;\n"
+                        + "import java.lang.annotation.Target;\n"
+                        + "@Target(ElementType.PARAMETER) @interface EnumValue { "
+                        + "String[] outputLanguages() default {\"TURTLE\", \"N3\"}; }\n"
+                        + "@Target(ElementType.TYPE_USE) @interface ValueRange { int lower(); int upper(); }\n"
+                        + "public class Api {\n"
+                        + "    public void write(@EnumValue String language) { }\n"
+                        + "    public @ValueRange(lower = 1, upper = 4000000) int size() { return 1; }\n"
+                        + "}\n");
+
+        Path clientSource = tempDir.resolve("src/example/Client.java");
+        Files.createDirectories(clientSource.getParent());
+        Files.writeString(clientSource,
+                "package example;\n"
+                        + "import org.apache.jena.rdf.model.Api;\n"
+                        + "public class Client {\n"
+                        + "    public void use() {\n"
+                        + "        Api api = new Api();\n"
+                        + "        api.write(\"TURTLE\");\n"
+                        + "        api.size();\n"
+                        + "    }\n"
+                        + "}\n");
+
+        ClientUseProcessor processor = new ClientUseProcessor("org.apache.jena.rdf.model", "main",
+                Map.of("EnumValue", List.of("outputLanguages"),
+                        "ValueRange", List.of("lower", "upper")));
+        Launcher launcher = new Launcher();
+        launcher.getEnvironment().setComplianceLevel(17);
+        launcher.getEnvironment().setNoClasspath(true);
+        launcher.addInputResource(apiSource.toString());
+        launcher.addInputResource(clientSource.toString());
+        launcher.addProcessor(processor);
+        launcher.run();
+
+        String namespace = "https://github.com/Incodam/";
+        org.apache.jena.rdf.model.Model constraints = processor.getConstraintModel();
+        org.apache.jena.rdf.model.Resource client = constraints.getResource(namespace + "example.Client");
+        Property onMethodCall = constraints.createProperty(namespace + "onMethodCall");
+        Property onMethodReturn = constraints.createProperty(namespace + "onMethodReturn");
+        assertTrue(client.hasProperty(constraints.createProperty(namespace + "applBranch"), "main"));
+        org.apache.jena.rdf.model.Resource constraintSet = client.getProperty(onMethodCall).getResource();
+        assertTrue(constraintSet.getURI().contains("_constraint_set_6"));
+
+        Property hasConstraints = constraints.createProperty(namespace + "hasContraints");
+        org.apache.jena.rdf.model.RDFList listedConstraints = constraintSet.getProperty(hasConstraints)
+                .getResource().as(org.apache.jena.rdf.model.RDFList.class);
+        org.apache.jena.rdf.model.Resource parameterConstraint = listedConstraints.getHead().asResource();
+        assertTrue(parameterConstraint.getURI().contains("_constraint_6_1"));
+        org.apache.jena.rdf.model.Resource annotation = parameterConstraint
+                .getProperty(constraints.createProperty(namespace + "annotations")).getResource();
+        assertEquals("EnumValue", annotation.getProperty(
+                constraints.createProperty("http://www.w3.org/2000/01/rdf-schema#label")).getString());
+        org.apache.jena.rdf.model.RDFList annotationProperties = annotation.getProperty(
+                constraints.createProperty(namespace + "annotationProperties"))
+                .getResource().as(org.apache.jena.rdf.model.RDFList.class);
+        org.apache.jena.rdf.model.Resource enumProperty = annotationProperties.getHead().asResource();
+        assertTrue(enumProperty.getURI().endsWith("_a_ev"));
+        org.apache.jena.rdf.model.RDFList enumValues = enumProperty.getProperty(RDF.value)
+                .getResource().as(org.apache.jena.rdf.model.RDFList.class);
+        assertEquals(List.of("TURTLE", "N3"), enumValues.asJavaList().stream()
+                .map(org.apache.jena.rdf.model.RDFNode::asLiteral)
+                .map(org.apache.jena.rdf.model.Literal::getString)
+                .toList());
+
+        org.apache.jena.rdf.model.Resource returnConstraint = client.getProperty(onMethodReturn).getResource();
+        assertTrue(returnConstraint.getURI().contains("_constraint_7"));
+        org.apache.jena.rdf.model.Resource returnAnnotation = returnConstraint
+                .getProperty(constraints.createProperty(namespace + "annotations")).getResource();
+        assertEquals("ValueRange", returnAnnotation.getProperty(
+                constraints.createProperty("http://www.w3.org/2000/01/rdf-schema#label")).getString());
+        assertEquals(2, returnAnnotation.getProperty(
+                constraints.createProperty(namespace + "annotationProperties")).getResource()
+                .as(org.apache.jena.rdf.model.RDFList.class).size());
+        assertFalse(processor.getModel().getResource(namespace + "example.Client")
+                        .hasProperty(processor.getModel().createProperty(namespace + "onMethodCall")),
+                "Constraint links should remain separate from the client-use model");
     }
 
     @Test
