@@ -20,6 +20,7 @@ import spoon.reflect.code.CtExpression;
 import spoon.reflect.code.CtFieldAccess;
 import spoon.reflect.code.CtLiteral;
 import spoon.reflect.code.CtNewArray;
+import spoon.reflect.code.CtReturn;
 import spoon.reflect.code.CtInvocation;
 import spoon.reflect.code.CtConstructorCall;
 import spoon.reflect.code.CtVariableRead;
@@ -263,12 +264,45 @@ public class ClientUseProcessor extends AbstractProcessor<CtElement> {
         }
 
         CtMethod<?> method = (CtMethod<?>) declaration;
-        List<CtAnnotation<?>> returnAnnotations = matchingAnnotations(method.getAnnotations());
-        returnAnnotations.addAll(matchingAnnotations(method.getType().getAnnotations()));
+        List<CtAnnotation<?>> returnAnnotations = matchingReturnAnnotations(method);
+        if (wrapperMethod != null && isDirectlyReturnedByWrapper(wrapperMethod, apiInvocation)) {
+            appendDistinctAnnotations(returnAnnotations, matchingWrapperReturnAnnotations(wrapperMethod));
+        }
         for (int annotationIndex = 0; annotationIndex < returnAnnotations.size(); annotationIndex++) {
             Resource constraint = createConstraint(apiMethodUri, sourceLine, "",
                     returnAnnotations.get(annotationIndex), annotationIndex);
             constraintClientResource.addProperty(onMethodReturn, constraint);
+        }
+    }
+
+    private boolean isDirectlyReturnedByWrapper(CtMethod<?> wrapperMethod, CtInvocation<?> apiInvocation) {
+        return wrapperMethod.getElements(new spoon.reflect.visitor.filter.TypeFilter<>(CtReturn.class)).stream()
+                .anyMatch(returnStatement -> returnStatement.getReturnedExpression() == apiInvocation);
+    }
+
+    private List<CtAnnotation<?>> matchingWrapperReturnAnnotations(CtMethod<?> wrapperMethod) {
+        List<CtAnnotation<?>> returnAnnotations = new ArrayList<>(
+                matchingAnnotations(wrapperMethod.getAnnotations()));
+        appendDistinctAnnotations(returnAnnotations, matchingAnnotations(wrapperMethod.getType().getAnnotations()));
+        return returnAnnotations;
+    }
+
+    private List<CtAnnotation<?>> matchingReturnAnnotations(CtMethod<?> method) {
+        List<CtAnnotation<?>> returnAnnotations = new ArrayList<>(matchingAnnotations(method.getAnnotations()));
+        appendDistinctAnnotations(returnAnnotations, matchingAnnotations(method.getType().getAnnotations()));
+        return returnAnnotations;
+    }
+
+    private void appendDistinctAnnotations(List<CtAnnotation<?>> annotationsToExtend,
+            List<CtAnnotation<?>> additionalAnnotations) {
+        Set<String> existingTypes = new LinkedHashSet<>();
+        for (CtAnnotation<?> annotation : annotationsToExtend) {
+            existingTypes.add(annotation.getAnnotationType().getQualifiedName());
+        }
+        for (CtAnnotation<?> annotation : additionalAnnotations) {
+            if (existingTypes.add(annotation.getAnnotationType().getQualifiedName())) {
+                annotationsToExtend.add(annotation);
+            }
         }
     }
 

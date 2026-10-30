@@ -483,6 +483,71 @@ class ClientUseCompilerTest {
     }
 
     @Test
+    void emitsConfiguredReturnAnnotationFromApiWrapper(@TempDir Path tempDir) throws Exception {
+        Path apiSource = tempDir.resolve("src/org/apache/jena/rdf/model/Api.java");
+        Files.createDirectories(apiSource.getParent());
+        Files.writeString(apiSource,
+                "package org.apache.jena.rdf.model;\n"
+                        + "public class Api {\n"
+                        + "    public long size() { return 1; }\n"
+                        + "}\n");
+
+        Path clientSource = tempDir.resolve("src/example/Client.java");
+        Files.createDirectories(clientSource.getParent());
+        Files.writeString(clientSource,
+                "package example;\n"
+                        + "import java.lang.annotation.ElementType;\n"
+                        + "import java.lang.annotation.Target;\n"
+                        + "import org.apache.jena.rdf.model.Api;\n"
+                        + "@interface ApiWrapper { }\n"
+                        + "@Target(ElementType.TYPE_USE) @interface ValueRange { long lower(); long upper(); }\n"
+                        + "class ClientApi {\n"
+                        + "    private final Api api = new Api();\n"
+                        + "    @ApiWrapper\n"
+                        + "    public @ValueRange(lower = 1, upper = 4000000) long getSize() {\n"
+                        + "        return api.size();\n"
+                        + "    }\n"
+                        + "}\n"
+                        + "public class Client {\n"
+                        + "    public long use(ClientApi api) {\n"
+                        + "        return api.getSize();\n"
+                        + "    }\n"
+                        + "}\n");
+
+        ClientUseProcessor processor = new ClientUseProcessor("org.apache.jena.rdf.model", "main",
+                Map.of("ValueRange", List.of("lower", "upper")));
+        Launcher launcher = new Launcher();
+        launcher.getEnvironment().setComplianceLevel(17);
+        launcher.getEnvironment().setNoClasspath(true);
+        launcher.addInputResource(apiSource.toString());
+        launcher.addInputResource(clientSource.toString());
+        launcher.addProcessor(processor);
+        launcher.run();
+
+        String namespace = "https://github.com/Incodam/";
+        org.apache.jena.rdf.model.Model constraints = processor.getConstraintModel();
+        org.apache.jena.rdf.model.Resource client = constraints.getResource(namespace + "example.Client");
+        org.apache.jena.rdf.model.Resource rangeConstraint = client.getProperty(
+                constraints.createProperty(namespace + "onMethodReturn")).getResource();
+        assertTrue(rangeConstraint.getURI().startsWith(
+                namespace + "org.apache.jena.rdf.model.Api_size_"));
+        assertTrue(rangeConstraint.getURI().endsWith("_constraint_16"), rangeConstraint.getURI());
+
+        org.apache.jena.rdf.model.Resource rangeAnnotation = rangeConstraint.getProperty(
+                constraints.createProperty(namespace + "annotations")).getResource();
+        assertEquals("ValueRange", rangeAnnotation.getProperty(
+                constraints.createProperty("http://www.w3.org/2000/01/rdf-schema#label")).getString());
+        assertEquals(2, rangeAnnotation.getProperty(
+                constraints.createProperty(namespace + "annotationProperties")).getResource()
+                .as(org.apache.jena.rdf.model.RDFList.class).size());
+
+        StringWriter turtle = new StringWriter();
+        constraints.write(turtle, "TURTLE");
+        assertFalse(turtle.toString().contains("ApiWrapper"),
+                "The wrapper marker should not be serialized as a constraint annotation");
+    }
+
+    @Test
     void handlesAnonymousClassesWithoutPackageMetadata(@TempDir Path tempDir) throws Exception {
         Path sourceFile = tempDir.resolve("AnonymousExample.java");
         Files.writeString(sourceFile,

@@ -42,4 +42,6 @@ an `@ApiWrapper` method must contain exactly one call into the selected target
 package. Annotated wrapper parameters must be passed directly to that API call
 in the corresponding parameter positions. Pajes records the underlying API
 method—not the wrapper—in RDF and uses the client-side source line where the
-wrapper is called for the constraint identifier.
+wrapper is called for the constraint identifier. Configured annotations on a
+wrapper's return type are transferred to the underlying API method's return
+constraint when the wrapper directly returns that API call's result.
