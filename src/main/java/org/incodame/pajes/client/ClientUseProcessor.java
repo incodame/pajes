@@ -22,6 +22,7 @@ import spoon.reflect.code.CtLiteral;
 import spoon.reflect.code.CtNewArray;
 import spoon.reflect.code.CtInvocation;
 import spoon.reflect.code.CtConstructorCall;
+import spoon.reflect.code.CtVariableRead;
 import spoon.reflect.declaration.CtAnnotation;
 import spoon.reflect.declaration.CtAnnotationMethod;
 import spoon.reflect.declaration.CtClass;
@@ -110,56 +111,32 @@ public class ClientUseProcessor extends AbstractProcessor<CtElement> {
 
     @Override
     public void process(CtElement element) {
-        
-        // 1. Détection des appels de méthodes
         if (element instanceof CtInvocation<?>) {
             CtInvocation<?> invocation = (CtInvocation<?>) element;
             CtExecutableReference<?> executableRef = invocation.getExecutable();
-            
-            if (executableRef != null && executableRef.getDeclaringType() != null) {
-                String declaringType = executableRef.getDeclaringType().getQualifiedName();
-                
-                if (isInTargetPackage(declaringType)) {
-                    // Construction de l'identifiant de la méthode (ex: icodm:org.incodame...Parameter_getName..._stable)
-                    String apiMethodUri = buildMemberUri(executableRef); //ICODM + declaringType + "_" + executableRef.getSimpleName() + "_stable";
-                    
-                    CtType<?> clientType = element.getParent(CtType.class);
-                    if (clientType != null) {
-                        Resource clientResource = getClientTypeResource(clientType);
-                        Resource apiMethodResource = model.createResource(apiMethodUri);
-                        
-                        // Ajout du triplet : [Classe Cliente] -> woc:calls -> [Méthode de l'API]
-                        clientResource.addProperty(wocCalls, apiMethodResource);
-                        addInvocationConstraints(invocation, executableRef, apiMethodUri, clientResource);
+            CtType<?> clientType = element.getParent(CtType.class);
+            if (executableRef != null && clientType != null) {
+                CtMethod<?> calledMethod = getMethodDeclaration(executableRef);
+                if (isApiWrapper(calledMethod)) {
+                    addApiWrapperCall(invocation, calledMethod, clientType);
+                } else if (isInTargetPackage(executableRef)) {
+                    CtMethod<?> enclosingMethod = invocation.getParent(CtMethod.class);
+                    if (!isApiWrapper(enclosingMethod)) {
+                        addApiMethodCall(invocation, invocation, executableRef, clientType, null);
                     }
                 }
             }
         }
-        
-        // 2. Détection des appels de Constructeurs (<init>)
         else if (element instanceof CtConstructorCall<?>) {
             CtConstructorCall<?> consCall = (CtConstructorCall<?>) element;
             CtExecutableReference<?> executableRef = consCall.getExecutable();
-            
-            if (executableRef != null && executableRef.getDeclaringType() != null) {
-                String declaringType = executableRef.getDeclaringType().getQualifiedName();
-                
-                if (isInTargetPackage(declaringType)) {
-                    // Correspondance avec l'identifiant de votre constructeur (ex: ...Parameter_constructor_..._stable)
-                    String apiConstructorUri = buildMemberUri(executableRef); //ICODM + declaringType + "_constructor_stable";
-                    
-                    CtType<?> clientType = element.getParent(CtType.class);
-                    if (clientType != null) {
-                        Resource clientResource = getClientTypeResource(clientType);
-                        Resource apiConstructorResource = model.createResource(apiConstructorUri);
-                        
-                        clientResource.addProperty(wocCalls, apiConstructorResource);
-                    }
-                }
+            CtType<?> clientType = element.getParent(CtType.class);
+            if (executableRef != null && isInTargetPackage(executableRef) && clientType != null) {
+                String apiConstructorUri = buildMemberUri(executableRef);
+                Resource clientResource = getClientTypeResource(clientType);
+                clientResource.addProperty(wocCalls, model.createResource(apiConstructorUri));
             }
         }
-
-        // 3. Détection de l'Héritage (extends) et des Implémentations (implements)
         else if (element instanceof CtClass<?> || element instanceof CtInterface<?>) {
             CtType<?> clientType = (CtType<?>) element;
             recordClientPackage(clientType);
@@ -180,6 +157,45 @@ public class ClientUseProcessor extends AbstractProcessor<CtElement> {
                 }
             }
         }
+    }
+
+    private void addApiMethodCall(CtInvocation<?> clientCall, CtInvocation<?> apiInvocation,
+            CtExecutableReference<?> apiMethodReference, CtType<?> clientType, CtMethod<?> wrapperMethod) {
+        String apiMethodUri = buildMemberUri(apiMethodReference);
+        Resource clientResource = getClientTypeResource(clientType);
+        clientResource.addProperty(wocCalls, model.createResource(apiMethodUri));
+        addInvocationConstraints(clientCall, apiInvocation, apiMethodReference, apiMethodUri,
+                clientResource, wrapperMethod);
+    }
+
+    private void addApiWrapperCall(CtInvocation<?> clientCall, CtMethod<?> wrapperMethod, CtType<?> clientType) {
+        List<CtInvocation> apiInvocations = wrapperMethod.getElements(
+                new spoon.reflect.visitor.filter.TypeFilter<>(CtInvocation.class)).stream()
+                .filter(invocation -> isInTargetPackage(invocation.getExecutable()))
+                .toList();
+        if (apiInvocations.size() != 1) {
+            throw new IllegalStateException("@ApiWrapper method must contain exactly one direct call to target package "
+                    + targetPackage + ": " + wrapperMethod.getDeclaringType().getQualifiedName()
+                    + "#" + wrapperMethod.getSimpleName());
+        }
+
+        CtInvocation<?> apiInvocation = apiInvocations.get(0);
+        addApiMethodCall(clientCall, apiInvocation, apiInvocation.getExecutable(), clientType, wrapperMethod);
+    }
+
+    private CtMethod<?> getMethodDeclaration(CtExecutableReference<?> executableReference) {
+        CtExecutable<?> declaration = executableReference.getExecutableDeclaration();
+        return declaration instanceof CtMethod<?> ? (CtMethod<?>) declaration : null;
+    }
+
+    private boolean isApiWrapper(CtMethod<?> method) {
+        return method != null && method.getAnnotations().stream()
+                .anyMatch(annotation -> "ApiWrapper".equals(annotation.getAnnotationType().getSimpleName()));
+    }
+
+    private boolean isInTargetPackage(CtExecutableReference<?> executableReference) {
+        return executableReference != null && executableReference.getDeclaringType() != null
+                && isInTargetPackage(executableReference.getDeclaringType().getQualifiedName());
     }
 
     private void recordClientPackage(CtType<?> clientType) {
@@ -209,8 +225,9 @@ public class ClientUseProcessor extends AbstractProcessor<CtElement> {
         return qualifiedName.startsWith(targetPackage + ".");
     }
 
-    private void addInvocationConstraints(CtInvocation<?> invocation, CtExecutableReference<?> executableReference,
-            String apiMethodUri, Resource clientResource) {
+    private void addInvocationConstraints(CtInvocation<?> clientCall, CtInvocation<?> apiInvocation,
+            CtExecutableReference<?> executableReference, String apiMethodUri, Resource clientResource,
+            CtMethod<?> wrapperMethod) {
         if (clientAnnotations.isEmpty()) {
             return;
         }
@@ -221,17 +238,22 @@ public class ClientUseProcessor extends AbstractProcessor<CtElement> {
             return;
         }
 
-        int sourceLine = invocation.getPosition().isValidPosition() ? invocation.getPosition().getLine() : -1;
+        int sourceLine = clientCall.getPosition().isValidPosition() ? clientCall.getPosition().getLine() : -1;
         List<Resource> parameterConstraints = new ArrayList<>();
         List<CtParameter<?>> parameters = declaration.getParameters();
         for (int index = 0; index < parameters.size(); index++) {
             CtParameter<?> parameter = parameters.get(index);
-            List<CtAnnotation<?>> matchedAnnotations = matchingAnnotations(parameter.getAnnotations());
+            List<CtAnnotation<?>> matchedAnnotations = new ArrayList<>(
+                    matchingAnnotations(parameter.getAnnotations()));
+            if (wrapperMethod != null) {
+                matchedAnnotations.addAll(matchingWrapperParameterAnnotations(wrapperMethod, apiInvocation, index));
+            }
             for (int annotationIndex = 0; annotationIndex < matchedAnnotations.size(); annotationIndex++) {
                 parameterConstraints.add(createConstraint(apiMethodUri, sourceLine,
                         "_" + (index + 1), matchedAnnotations.get(annotationIndex), annotationIndex));
             }
         }
+
         if (!parameterConstraints.isEmpty()) {
             String constraintSetUri = apiMethodUri + "_constraint_set_" + sourceLine;
             Resource constraintSet = constraintModel.createResource(constraintSetUri)
@@ -248,6 +270,25 @@ public class ClientUseProcessor extends AbstractProcessor<CtElement> {
                     returnAnnotations.get(annotationIndex), annotationIndex);
             constraintClientResource.addProperty(onMethodReturn, constraint);
         }
+    }
+
+    private List<CtAnnotation<?>> matchingWrapperParameterAnnotations(CtMethod<?> wrapperMethod,
+            CtInvocation<?> apiInvocation, int apiParameterIndex) {
+        if (apiParameterIndex >= apiInvocation.getArguments().size()) {
+            return List.of();
+        }
+        CtExpression<?> argument = apiInvocation.getArguments().get(apiParameterIndex);
+        if (!(argument instanceof CtVariableRead<?>)) {
+            return List.of();
+        }
+
+        String passedParameterName = ((CtVariableRead<?>) argument).getVariable().getSimpleName();
+        for (CtParameter<?> wrapperParameter : wrapperMethod.getParameters()) {
+            if (wrapperParameter.getSimpleName().equals(passedParameterName)) {
+                return matchingAnnotations(wrapperParameter.getAnnotations());
+            }
+        }
+        return List.of();
     }
 
     private List<CtAnnotation<?>> matchingAnnotations(List<CtAnnotation<?>> candidateAnnotations) {

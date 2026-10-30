@@ -2,3 +2,58 @@
 @prefix rdf:   <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 @prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
 @prefix woc:   <http://webofcode.org> .
+
+icodm:org.apache.jena.rdf.model.Model_write_2031d85c99f0_stable_constraint_110_2_a
+        rdf:type                    woc:Annotation , icodm:JavaConstraintAnnotation;
+        rdfs:label                  "EnumValue";
+        icodm:annotationProperties  ( icodm:org.apache.jena.rdf.model.Model_write_2031d85c99f0_stable_constraint_110_2_a_ev ) .
+
+icodm:org.incodame.pajes.client.ClientUseRdfMetadata
+        icodm:applBranch  "main" .
+
+icodm:org.incodame.pajes.client.ClientUseProcessor
+        icodm:applBranch  "main" .
+
+icodm:org.apache.jena.rdf.model.Model_write_2031d85c99f0_stable_constraint_116_2_a
+        rdf:type                    woc:Annotation , icodm:JavaConstraintAnnotation;
+        rdfs:label                  "EnumValue";
+        icodm:annotationProperties  ( icodm:org.apache.jena.rdf.model.Model_write_2031d85c99f0_stable_constraint_116_2_a_ev ) .
+
+icodm:org.apache.jena.rdf.model.Model_write_2031d85c99f0_stable_constraint_set_116
+        rdf:type             icodm:ApiClientConstraintSet;
+        icodm:hasContraints  ( icodm:org.apache.jena.rdf.model.Model_write_2031d85c99f0_stable_constraint_116_2 ) .
+
+icodm:org.apache.jena.rdf.model.Model_write_2031d85c99f0_stable_constraint_set_110
+        rdf:type             icodm:ApiClientConstraintSet;
+        icodm:hasContraints  ( icodm:org.apache.jena.rdf.model.Model_write_2031d85c99f0_stable_constraint_110_2 ) .
+
+icodm:org.apache.jena.rdf.model.Model_write_2031d85c99f0_stable_constraint_116_2
+        rdf:type           icodm:ApiClientConstraint;
+        icodm:annotations  icodm:org.apache.jena.rdf.model.Model_write_2031d85c99f0_stable_constraint_116_2_a .
+
+icodm:org.incodame.pajes.apiref.CodeOntologyReporter
+        icodm:applBranch  "main" .
+
+icodm:org.apache.jena.rdf.model.Model_write_2031d85c99f0_stable_constraint_110_2
+        rdf:type           icodm:ApiClientConstraint;
+        icodm:annotations  icodm:org.apache.jena.rdf.model.Model_write_2031d85c99f0_stable_constraint_110_2_a .
+
+icodm:org.incodame.pajes.apiref.CodeOntologyVisitor
+        icodm:applBranch  "main" .
+
+icodm:org.apache.jena.rdf.model.Model_write_2031d85c99f0_stable_constraint_110_2_a_ev
+        rdf:type    icodm:CoAProperty;
+        rdf:value   ( "RDF/XML" "RDF/XML-ABBREV" "N-TRIPLE" "TURTLE" "TTL" "N3" );
+        rdfs:label  "values" .
+
+icodm:org.incodame.pajes.client.ClientUseToRdf
+        icodm:applBranch    "main";
+        icodm:onMethodCall  icodm:org.apache.jena.rdf.model.Model_write_2031d85c99f0_stable_constraint_set_116 , icodm:org.apache.jena.rdf.model.Model_write_2031d85c99f0_stable_constraint_set_110 .
+
+icodm:org.incodame.pajes.apiref.JavaPatchToRdf
+        icodm:applBranch  "main" .
+
+icodm:org.apache.jena.rdf.model.Model_write_2031d85c99f0_stable_constraint_116_2_a_ev
+        rdf:type    icodm:CoAProperty;
+        rdf:value   ( "RDF/XML" "RDF/XML-ABBREV" "N-TRIPLE" "TURTLE" "TTL" "N3" );
+        rdfs:label  "values" .

@@ -60,7 +60,7 @@ maven:
 client-annotations:
   - name: EnumValue
     properties:
-      - outputLanguages
+      - values
   - name: ValueRange
     properties:
       - lower
@@ -76,6 +76,20 @@ methods' return annotations, and writes call-site constraints to
 `client-use-constraints.ttl`. Constraint identifiers use the API call's source
 line; parameter constraint identifiers also include the one-based API parameter
 position.
+For APIs that cannot be annotated directly, a client wrapper method can be
+marked with `@ApiWrapper`:
+```java
+@ApiWrapper
+void writeModel(@EnumValue(values = {"TURTLE", "N3"}) String format) {
+    model.write(format);
+}
+```
+The processor recognizes the marker by its simple annotation name, regardless
+of its package. An annotated wrapper must contain exactly one call into the
+selected target package, and annotated parameters must be passed directly to
+that API call in the same positions. RDF links and constraints are generated
+for the underlying API method; the wrapper and its marker are omitted. The
+constraint line number is the client-side line where the wrapper is called.
 
 Example:
 ```sh

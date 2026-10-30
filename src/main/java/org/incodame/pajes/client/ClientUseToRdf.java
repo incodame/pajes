@@ -22,6 +22,11 @@ import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
 
+import org.apache.jena.rdf.model.Model;
+import org.incodame.pajes.annotations.ApiWrapper;
+import org.incodame.pajes.annotations.EnumValue;
+import org.incodame.pajes.annotations.ValueRange;
+
 public class ClientUseToRdf {
     private static final Pattern RELEASE_BRANCH = Pattern.compile("\\d+(?:\\.\\d+)*");
 
@@ -102,17 +107,28 @@ public class ClientUseToRdf {
         // Extraction du modèle RDF finalisé
         try (FileWriter out = new FileWriter("client-use.ttl")) {
             // Écriture du modèle au format Turtle
-            rdfProcessor.getModel().write(out, "TURTLE");
+            writeModel(out, rdfProcessor.getModel(), "TURTLE");
         }
         reportProgress(log, "RDF analysis report generated: client-use.ttl ("
-                + rdfProcessor.getModel().size() + " triples)");
+                + getModelSize(rdfProcessor.getModel()) + " triples)");
 
         try (FileWriter out = new FileWriter("client-use-constraints.ttl")) {
-            rdfProcessor.getConstraintModel().write(out, "TURTLE");
+            writeModel(out, rdfProcessor.getConstraintModel(), "TURTLE");
         }
         reportProgress(log, "RDF constraints report generated: client-use-constraints.ttl ("
-                + rdfProcessor.getConstraintModel().size() + " triples)");
+                + getModelSize(rdfProcessor.getConstraintModel()) + " triples)");
 
+    }
+
+    @ApiWrapper 
+    private static void writeModel(FileWriter out, Model model, 
+        @EnumValue(values = {"RDF/XML", "RDF/XML-ABBREV", "N-TRIPLE", "TURTLE", "TTL", "N3"}) String format) throws IOException {
+        model.write(out, format);
+    }
+
+    @ApiWrapper
+    private static @ValueRange(lower = 1, upper = 4000000) long getModelSize(Model model) {
+        return model.size();
     }
 
     static Path resolveMavenSettings(Path configurationFile) throws IOException {

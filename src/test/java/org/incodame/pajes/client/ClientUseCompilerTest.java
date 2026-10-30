@@ -415,6 +415,74 @@ class ClientUseCompilerTest {
     }
 
     @Test
+    void treatsApiWrapperAsTransparentAndUsesWrapperCallLine(@TempDir Path tempDir) throws Exception {
+        Path apiSource = tempDir.resolve("src/org/apache/jena/rdf/model/Api.java");
+        Files.createDirectories(apiSource.getParent());
+        Files.writeString(apiSource,
+                "package org.apache.jena.rdf.model;\n"
+                        + "public class Api {\n"
+                        + "    public void write(String value) { }\n"
+                        + "}\n");
+
+        Path clientSource = tempDir.resolve("src/example/Client.java");
+        Files.createDirectories(clientSource.getParent());
+        Files.writeString(clientSource,
+                "package example;\n"
+                        + "import org.apache.jena.rdf.model.Api;\n"
+                        + "@interface ApiWrapper { }\n"
+                        + "@interface EnumValue { String[] values(); }\n"
+                        + "class ClientApi {\n"
+                        + "    private final Api api = new Api();\n"
+                        + "    @ApiWrapper\n"
+                        + "    public void write(@EnumValue(values = {\"one\", \"two\"}) String value) {\n"
+                        + "        api.write(value);\n"
+                        + "    }\n"
+                        + "}\n"
+                        + "public class Client {\n"
+                        + "    public void use(ClientApi client) {\n"
+                        + "        client.write(\"one\");\n"
+                        + "    }\n"
+                        + "}\n");
+
+        ClientUseProcessor processor = new ClientUseProcessor("org.apache.jena.rdf.model", "main",
+                Map.of("EnumValue", List.of("values")));
+        Launcher launcher = new Launcher();
+        launcher.getEnvironment().setComplianceLevel(17);
+        launcher.getEnvironment().setNoClasspath(true);
+        launcher.addInputResource(apiSource.toString());
+        launcher.addInputResource(clientSource.toString());
+        launcher.addProcessor(processor);
+        launcher.run();
+
+        String namespace = "https://github.com/Incodam/";
+        org.apache.jena.rdf.model.Model model = processor.getModel();
+        org.apache.jena.rdf.model.Resource client = model.getResource(namespace + "example.Client");
+        Property calls = model.createProperty("http://webofcode.orgcalls");
+        List<String> callUris = client.listProperties(calls).toList().stream()
+                .map(statement -> statement.getResource().getURI())
+                .toList();
+        assertEquals(1, callUris.size());
+        assertTrue(callUris.get(0).startsWith(namespace + "org.apache.jena.rdf.model.Api_write_"));
+        assertFalse(callUris.get(0).contains("ClientApi"),
+                "The wrapper method should not replace the target API method in RDF");
+        StringWriter constraintTurtle = new StringWriter();
+        processor.getConstraintModel().write(constraintTurtle, "TURTLE");
+        assertFalse(constraintTurtle.toString().contains("ApiWrapper"),
+                "The wrapper marker should not be serialized as a constraint annotation");
+
+        org.apache.jena.rdf.model.Model constraints = processor.getConstraintModel();
+        org.apache.jena.rdf.model.Resource constraintClient = constraints.getResource(namespace + "example.Client");
+        org.apache.jena.rdf.model.Resource constraintSet = constraintClient.getProperty(
+                constraints.createProperty(namespace + "onMethodCall")).getResource();
+        assertTrue(constraintSet.getURI().contains("_constraint_set_14"),
+                "Constraint IDs should use the client-side wrapper invocation line");
+        org.apache.jena.rdf.model.Resource constraint = constraintSet.getProperty(
+                constraints.createProperty(namespace + "hasContraints")).getResource()
+                .as(org.apache.jena.rdf.model.RDFList.class).getHead().asResource();
+        assertTrue(constraint.getURI().contains("_constraint_14_1"));
+    }
+
+    @Test
     void handlesAnonymousClassesWithoutPackageMetadata(@TempDir Path tempDir) throws Exception {
         Path sourceFile = tempDir.resolve("AnonymousExample.java");
         Files.writeString(sourceFile,

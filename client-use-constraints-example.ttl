@@ -17,7 +17,7 @@ icodm:org.apache.jena.rdf.model.Model_write_2031d85c99f0_stable_constraint_100_2
                                
 org.apache.jena.rdf.model.Model_write_2031d85c99f0_stable_constraint_100_2_a_ev
     a icodm:CoAProperty    
-    rdfs:label "outputLanguages"
+    rdfs:label "values"
     rdf:value ( ["RDF/XML", "RDF/XML-ABBREV", "N-TRIPLE", "TURTLE", "TTL", "N3"] ).
 
 icodm:org.incodame.pajes.client.ClientUseToRdf
