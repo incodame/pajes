@@ -14,12 +14,75 @@ import java.nio.file.Paths;
 
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.io.PrintStream;
+import java.io.Writer;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
 
-public class ClientUseToRdf {
+import org.apache.jena.rdf.model.Model;
+import org.apache.jena.rdf.model.ModelFactory;
+import org.apache.jena.rdf.model.RDFErrorHandler;
+import org.apache.jena.rdf.model.RDFWriterI;
+import org.incodame.pajes.annotations.ApiWrapper;
+import org.incodame.pajes.annotations.ApiCallbackWrapper;
+import org.incodame.pajes.annotations.EnumValue;
+import org.incodame.pajes.annotations.ValueRange;
+
+public class ClientUseToRdf implements RDFWriterI {
     private static final Pattern RELEASE_BRANCH = Pattern.compile("\\d+(?:\\.\\d+)*");
+    private final Map<String, Object> writerProperties = new HashMap<>();
+    private RDFErrorHandler errorHandler;
+
+    @ApiCallbackWrapper
+    @Override
+    public void write(Model model, Writer out, @EnumValue(values = {
+            "RDF/XML", "RDF/XML-ABBREV", "N-TRIPLE", "TURTLE", "TTL", "N3" }) String lang) {
+        writeWithConfiguredWriter(model, out, lang);
+    }
+
+    @ApiCallbackWrapper
+    @Override
+    public void write(Model model, OutputStream out, @EnumValue(values = {
+            "RDF/XML", "RDF/XML-ABBREV", "N-TRIPLE", "TURTLE", "TTL", "N3" }) String lang) {
+        writeWithConfiguredWriter(model, out, lang);
+    }
+
+    private void writeWithConfiguredWriter(Model model, Writer out, String lang) {
+        RDFWriterI writer = model.getWriter(lang);
+        configureWriter(writer);
+        writer.write(model, out, lang);
+    }
+
+    private void writeWithConfiguredWriter(Model model, OutputStream out, String lang) {
+        RDFWriterI writer = model.getWriter(lang);
+        configureWriter(writer);
+        writer.write(model, out, lang);
+    }
+
+    private void configureWriter(RDFWriterI writer) {
+        writerProperties.forEach(writer::setProperty);
+        writer.setErrorHandler(errorHandler);
+    }
+
+    @ApiCallbackWrapper
+    @Override
+    public Object setProperty(String propName, Object propValue) {
+        return writerProperties.put(propName, propValue);
+    }
+
+    @ApiCallbackWrapper
+    @Override
+    public RDFErrorHandler setErrorHandler(RDFErrorHandler errHandler) {
+        RDFErrorHandler previousHandler = errorHandler;
+        errorHandler = errHandler;
+        return previousHandler;
+    }
 
     public static void main(String[] args) throws IOException {
         if (args.length != 3 || args[0].trim().isEmpty() || args[1].trim().isEmpty()
@@ -60,7 +123,9 @@ public class ClientUseToRdf {
                     }
                 };
         
-        Path settingsXmlPath = resolveMavenSettings(Paths.get("pajes-config.yaml"));
+        Path configurationFile = Paths.get("pajes-config.yaml");
+        Path settingsXmlPath = resolveMavenSettings(configurationFile);
+        Map<String, List<String>> clientAnnotations = resolveClientAnnotations(configurationFile);
         if (settingsXmlPath != null) {
             log.println("Resolving maven classpath using " + settingsXmlPath);
         }
@@ -76,8 +141,7 @@ public class ClientUseToRdf {
         launcher.getEnvironment().setComplianceLevel(17);
         launcher.getEnvironment().setNoClasspath(false);
 
-        // Instanciation du processeur RDF
-        ClientUseProcessor rdfProcessor = new ClientUseProcessor(targetPackage, branch);
+        ClientUseProcessor rdfProcessor = new ClientUseProcessor(targetPackage, branch, clientAnnotations);
         launcher.addProcessor(rdfProcessor);
         
         // Exécution de l'analyse Spoon
@@ -97,11 +161,28 @@ public class ClientUseToRdf {
         // Extraction du modèle RDF finalisé
         try (FileWriter out = new FileWriter("client-use.ttl")) {
             // Écriture du modèle au format Turtle
-            rdfProcessor.getModel().write(out, "TURTLE");
+            writeModel(out, rdfProcessor.getModel(), "TURTLE");
         }
         reportProgress(log, "RDF analysis report generated: client-use.ttl ("
-                + rdfProcessor.getModel().size() + " triples)");
+                + getModelSize(rdfProcessor.getModel()) + " triples)");
 
+        try (FileWriter out = new FileWriter("client-use-constraints.ttl")) {
+            writeModel(out, rdfProcessor.getConstraintModel(), "TURTLE");
+        }
+        reportProgress(log, "RDF constraints report generated: client-use-constraints.ttl ("
+                + getModelSize(rdfProcessor.getConstraintModel()) + " triples)");
+
+    }
+
+    @ApiWrapper 
+    private static void writeModel(FileWriter out, Model model, 
+        @EnumValue(values = {"RDF/XML", "RDF/XML-ABBREV", "N-TRIPLE", "TURTLE", "TTL", "N3"}) String format) throws IOException {
+        model.write(out, format);
+    }
+
+    @ApiWrapper
+    private static @ValueRange(lower = 1, upper = 4000000) long getModelSize(Model model) {
+        return model.size();
     }
 
     static Path resolveMavenSettings(Path configurationFile) throws IOException {
@@ -123,6 +204,45 @@ public class ClientUseToRdf {
                     + " is not readable: " + settingsPath);
         }
         return settingsPath;
+    }
+
+    static Map<String, List<String>> resolveClientAnnotations(Path configurationFile) throws IOException {
+        if (!Files.exists(configurationFile)) {
+            return Map.of();
+        }
+        JsonNode configuration = new ObjectMapper(new YAMLFactory()).readTree(configurationFile.toFile());
+        JsonNode annotations = configuration == null ? null : configuration.get("client-annotations");
+        if (annotations == null || annotations.isNull()) {
+            return Map.of();
+        }
+        if (!annotations.isArray()) {
+            throw new IOException("client-annotations must be a YAML list in " + configurationFile);
+        }
+
+        Map<String, List<String>> result = new LinkedHashMap<>();
+        for (int index = 0; index < annotations.size(); index++) {
+            JsonNode annotation = annotations.get(index);
+            if (!annotation.isObject() || !annotation.path("name").isTextual()
+                    || annotation.path("name").asText().trim().isEmpty()
+                    || !annotation.path("properties").isArray()) {
+                throw new IOException("Each client-annotations entry must have a non-empty name and a properties list "
+                        + "in " + configurationFile + " (entry " + index + ")");
+            }
+
+            String name = annotation.path("name").asText().trim();
+            List<String> properties = new ArrayList<>();
+            for (JsonNode property : annotation.path("properties")) {
+                if (!property.isTextual() || property.asText().trim().isEmpty()) {
+                    throw new IOException("client-annotations properties must be non-empty strings in "
+                            + configurationFile + " (entry " + index + ")");
+                }
+                properties.add(property.asText().trim());
+            }
+            if (result.putIfAbsent(name, List.copyOf(properties)) != null) {
+                throw new IOException("Duplicate client annotation name in " + configurationFile + ": " + name);
+            }
+        }
+        return Map.copyOf(result);
     }
 
     private static String resolveGroupId(MavenLauncher launcher) {

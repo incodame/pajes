@@ -57,10 +57,39 @@ in the current working directory:
 ```yaml
 maven:
   settings: /path/to/maven/settings.xml
+client-annotations:
+  - name: EnumValue
+    properties:
+      - values
+  - name: ValueRange
+    properties:
+      - lower
+      - upper
 ```
 Relative settings paths are resolved relative to the configuration file. If the
 file or `maven.settings` property is absent, Maven uses its default settings.
 A configured settings file must exist and be readable.
+`client-annotations` is an optional YAML list. Each entry names a Java annotation
+and selects the annotation properties to include in client constraints. The
+processor reads matching annotations from target API method parameters and
+methods' return annotations, and writes call-site constraints to
+`client-use-constraints.ttl`. Constraint identifiers use the API call's source
+line; parameter constraint identifiers also include the one-based API parameter
+position.
+For APIs that cannot be annotated directly, a client wrapper method can be
+marked with `@ApiWrapper`:
+```java
+@ApiWrapper
+void writeModel(@EnumValue(values = {"TURTLE", "N3"}) String format) {
+    model.write(format);
+}
+```
+The processor recognizes the marker by its simple annotation name, regardless
+of its package. An annotated wrapper must contain exactly one call into the
+selected target package, and annotated parameters must be passed directly to
+that API call in the same positions. RDF links and constraints are generated
+for the underlying API method; the wrapper and its marker are omitted. The
+constraint line number is the client-side line where the wrapper is called.
 
 Example:
 ```sh

@@ -1,1 +1,9 @@
 maven: {}
+client-annotations:
+  - name: EnumValue
+    properties:
+      - values
+  - name: ValueRange
+    properties:
+      - lower
+      - upper
