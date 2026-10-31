@@ -43,3 +43,27 @@ org.apache.jena.rdf.model.Model_size_fe3e41004f80_stable_constraint_103_a_vr_upp
     a icodm:CoAProperty    
     rdfs:label "upper"
     rdf:value 4000000.
+
+icodm:org.incodame.pajes.client.ClientUseRdfMetadata
+    icodm:onTypeUse icodm:org.apache.jena.rdf.model.Model_constraint_27_1 ;
+    icodm:applBranch  "main" .
+
+icodm:org.apache.jena.rdf.model.Model_constraint_27_1
+    a icodm:ApiClientConstraint ;
+    icodm:annotations icodm:org.apache.jena.rdf.model.Model_constraint_27_1_a .
+
+icodm:org.apache.jena.rdf.model.Model_constraint_27_1_a
+    a icodm:JavaConstraintAnnotation, woc:Annotation ;
+    rdfs:label "ApiExpectedFormat"
+    icodm:annotationProperties icodm:org.apache.jena.rdf.model.Model_constraint_27_1_a_ef_select,
+                               icodm:org.apache.jena.rdf.model.Model_constraint_27_1_a_ef_format .
+
+icodm:org.apache.jena.rdf.model.Model_constraint_27_1_a_ef_select
+    a icodm:CoAProperty
+    rdfs:label "select"
+    rdf:value "nsPrefix".
+
+icodm:org.apache.jena.rdf.model.Model_constraint_27_1_a_ef_format
+    a icodm:CoAProperty
+    rdfs:label "format"
+    rdf:value "aggregate('icodm:', packageName)".

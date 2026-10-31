@@ -158,6 +158,9 @@ public class ClientUseToRdf implements RDFWriterI {
                 branch, targetPackage, targetVersion);
         reportProgress(log, "Resolved " + targetPackage + " dependency version " + targetVersion);
         
+        // Check of the generated RDF model for consistency and completeness
+        ClientUseRdfMetadata.checkModel(rdfProcessor.getModel(), log);
+
         // Extraction du modèle RDF finalisé
         try (FileWriter out = new FileWriter("client-use.ttl")) {
             // Écriture du modèle au format Turtle
