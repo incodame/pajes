@@ -11,8 +11,9 @@ import org.revapi.base.FileArchive;
 public class JavaLibToRdf {
 
     public static void main(String[] args) throws Exception {
-        if (args.length != 2) {
-            throw new IllegalArgumentException("Usage: JavaLibToRdf <jar-file> <version>");
+        if (args.length != 2 && args.length != 3) {
+            throw new IllegalArgumentException(
+                    "Usage: JavaLibToRdf <jar-file> <version> [<sources-javadoc.jar>]");
         }
 
         String version = args[1].trim();
@@ -25,21 +26,30 @@ public class JavaLibToRdf {
             throw new IOException("JAR file does not exist or is not readable: " + jarFile);
         }
 
-        ClassHierarchy classHierarchy = ClassHierarchy.read(jarFile);
-        Revapi revapi = Revapi.builder()
-                .withAnalyzersFromThreadContextClassLoader()
-                .withReporters(CodeOntologyReporter.class)
-                .build();
+        File sourcesJar = args.length == 3 ? new File(args[2]) : null;
+        if (sourcesJar != null && (!sourcesJar.isFile() || !sourcesJar.canRead())) {
+            throw new IOException("Sources JAR does not exist or is not readable: " + sourcesJar);
+        }
 
-        AnalysisContext analysisContext = AnalysisContext.builder(revapi)
-                .withOldAPI(API.of(new FileArchive(jarFile)).build())
-                .withNewAPI(API.of().build())
-                .withData(ClassHierarchy.ANALYSIS_CONTEXT_KEY, classHierarchy)
-                .withData(CodeOntologyReporter.VERSION_CONTEXT_KEY, version)
-                .build();
+        try (JavadocIndex javadocIndex = sourcesJar == null
+                ? JavadocIndex.empty() : JavadocIndex.open(sourcesJar)) {
+            ClassHierarchy classHierarchy = ClassHierarchy.read(jarFile);
+            Revapi revapi = Revapi.builder()
+                    .withAnalyzersFromThreadContextClassLoader()
+                    .withReporters(CodeOntologyReporter.class)
+                    .build();
 
-        try (AnalysisResult result = revapi.analyze(analysisContext)) {
-            result.throwIfFailed();
+            AnalysisContext analysisContext = AnalysisContext.builder(revapi)
+                    .withOldAPI(API.of(new FileArchive(jarFile)).build())
+                    .withNewAPI(API.of().build())
+                    .withData(ClassHierarchy.ANALYSIS_CONTEXT_KEY, classHierarchy)
+                    .withData(CodeOntologyReporter.VERSION_CONTEXT_KEY, version)
+                    .withData(CodeOntologyReporter.JAVADOC_CONTEXT_KEY, javadocIndex)
+                    .build();
+
+            try (AnalysisResult result = revapi.analyze(analysisContext)) {
+                result.throwIfFailed();
+            }
         }
     }
 }
