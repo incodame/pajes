@@ -55,11 +55,11 @@ public class CodeOntologyReporter implements Reporter {
             throw new IllegalStateException("Invalid class hierarchy data in Revapi analysis context");
         }
         Object javadocData = analysisContext.getData(JAVADOC_CONTEXT_KEY);
-        if (javadocData != null && !(javadocData instanceof JavadocIndex)) {
+        if (javadocData != null && !(javadocData instanceof SourceJavadocIndex)) {
             throw new IllegalStateException("Invalid Javadoc index data in Revapi analysis context");
         }
         this.visitor = new CodeOntologyVisitor(model, WOC_NS, APP_NS, (ClassHierarchy) hierarchyData,
-                (String) versionData, (JavadocIndex) javadocData);
+                (String) versionData, (SourceJavadocIndex) javadocData);
     }
 
     @Override
