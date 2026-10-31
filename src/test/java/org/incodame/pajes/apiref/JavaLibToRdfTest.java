@@ -43,7 +43,88 @@ class JavaLibToRdfTest {
         assertThrows(IllegalArgumentException.class,
                 () -> JavaLibToRdf.main(new String[] { SAMPLE_JAR.toString() }));
         assertThrows(IllegalArgumentException.class,
-                () -> JavaLibToRdf.main(new String[] { SAMPLE_JAR.toString(), "1.2.3", "extra" }));
+                () -> JavaLibToRdf.main(new String[] { SAMPLE_JAR.toString(), "1.2.3", "sources.jar", "extra" }));
+    }
+
+    @Test
+    void includesMethodAndParameterJavadocsFromOptionalSourcesJar(@TempDir Path tempDir) throws Exception {
+        Path sourceFile = tempDir.resolve("src/demo/Parameter.java");
+        Files.createDirectories(sourceFile.getParent());
+        Files.writeString(sourceFile,
+                "package demo;\n"
+                        + "public class Parameter {\n"
+                        + "    private String loc;\n"
+                        + "    /** Sets the information how to retrieve a parameter's value.\n"
+                        + "     * @param loc a prolog predicate describing how to retrieve the parameter's value\n"
+                        + "     */\n"
+                        + "    public void setLoc(String loc) { this.loc = loc; }\n"
+                        + "}\n");
+
+        Path classesDirectory = tempDir.resolve("classes");
+        Files.createDirectories(classesDirectory);
+        JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
+        assertTrue(compiler != null, "Tests require a JDK compiler");
+        assertEquals(0, compiler.run(null, null, null,
+                "--release", "17", "-d", classesDirectory.toString(), sourceFile.toString()));
+
+        Path jarFile = tempDir.resolve("library.jar");
+        try (JarOutputStream jar = new JarOutputStream(Files.newOutputStream(jarFile))) {
+            Path classFile = classesDirectory.resolve("demo/Parameter.class");
+            jar.putNextEntry(new JarEntry("demo/Parameter.class"));
+            Files.copy(classFile, jar);
+            jar.closeEntry();
+        }
+
+        Path sourcesJar = tempDir.resolve("library-sources.jar");
+        String javadocHtml = "<html><body><section class=\"detail\" id=\"setLoc(java.lang.String)\">"
+                + "<h3>setLoc</h3><div class=\"block\">Sets the information how to retrieve a parameter's value</div>"
+                + "<dl><dt>Parameters:</dt><dd><code>loc</code> - a prolog predicate describing how to retrieve "
+                + "the parameter's value</dd></dl></section></body></html>";
+        try (JarOutputStream jar = new JarOutputStream(Files.newOutputStream(sourcesJar))) {
+            jar.putNextEntry(new JarEntry("demo/Parameter.html"));
+            jar.write(javadocHtml.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            jar.closeEntry();
+        }
+
+        Path outputDirectory = tempDir.resolve("rdf");
+        Files.createDirectories(outputDirectory);
+        String previousOutputDirectory = System.getProperty(CodeOntologyReporter.OUTPUT_DIRECTORY_PROPERTY);
+        String previousOutputFile = System.getProperty(CodeOntologyReporter.OUTPUT_FILE_PROPERTY);
+        System.clearProperty(CodeOntologyReporter.OUTPUT_FILE_PROPERTY);
+        System.setProperty(CodeOntologyReporter.OUTPUT_DIRECTORY_PROPERTY, outputDirectory.toString());
+
+        try {
+            JavaLibToRdf.main(new String[] { jarFile.toString(), "1.0.0", sourcesJar.toString() });
+            Path outputFile = outputDirectory.resolve("refmodule-1.0.0.ttl");
+            Model model = ModelFactory.createDefaultModel();
+            try (InputStream input = Files.newInputStream(outputFile)) {
+                model.read(input, outputFile.toUri().toString(), "TURTLE");
+            }
+
+            Resource method = model.listResourcesWithProperty(
+                    model.createProperty("http://webofcode.orghasSimpleName"), "setLoc")
+                    .nextResource();
+            assertEquals("Sets the information how to retrieve a parameter's value",
+                    method.getProperty(model.createProperty("https://github.com/Incodam/methodJavadoc")).getString());
+            Resource parameter = method.getProperty(model.createProperty("http://webofcode.orgparameters"))
+                    .getResource().as(RDFList.class).getHead().asResource();
+            assertEquals("loc", parameter.getProperty(
+                    model.createProperty("http://www.w3.org/2000/01/rdf-schema#label")).getString());
+            assertEquals("a prolog predicate describing how to retrieve the parameter's value",
+                    parameter.getProperty(
+                            model.createProperty("https://github.com/Incodam/paramJavadoc")).getString());
+        } finally {
+            if (previousOutputDirectory == null) {
+                System.clearProperty(CodeOntologyReporter.OUTPUT_DIRECTORY_PROPERTY);
+            } else {
+                System.setProperty(CodeOntologyReporter.OUTPUT_DIRECTORY_PROPERTY, previousOutputDirectory);
+            }
+            if (previousOutputFile == null) {
+                System.clearProperty(CodeOntologyReporter.OUTPUT_FILE_PROPERTY);
+            } else {
+                System.setProperty(CodeOntologyReporter.OUTPUT_FILE_PROPERTY, previousOutputFile);
+            }
+        }
     }
 
     @Test

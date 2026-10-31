@@ -31,6 +31,7 @@ public class CodeOntologyVisitor extends SimpleElementVisitor14<Resource, Void> 
     private final String appNs;
     private final ClassHierarchy classHierarchy;
     private final String apiVersion;
+    private final JavadocIndex javadocIndex;
 
     // Core Classes & Structural Properties
     private final Resource wocClass;
@@ -49,6 +50,9 @@ public class CodeOntologyVisitor extends SimpleElementVisitor14<Resource, Void> 
     private final Resource parameterClass;
     private final Property parameterIndex;
     private final Property parameterType;
+    private final Property parameterName;
+    private final Property methodJavadoc;
+    private final Property parameterJavadoc;
 
     // CodeOntology Visibility Properties & Individuals
     private final Property hasModifier;
@@ -57,15 +61,21 @@ public class CodeOntologyVisitor extends SimpleElementVisitor14<Resource, Void> 
     private final Resource modifierProtected;
 
     public CodeOntologyVisitor(Model model, String wocNs, String appNs) {
-        this(model, wocNs, appNs, null, null);
+        this(model, wocNs, appNs, null, null, null);
     }
 
     public CodeOntologyVisitor(Model model, String wocNs, String appNs, ClassHierarchy classHierarchy, String apiVersion) {
+        this(model, wocNs, appNs, classHierarchy, apiVersion, null);
+    }
+
+    public CodeOntologyVisitor(Model model, String wocNs, String appNs, ClassHierarchy classHierarchy, String apiVersion,
+            JavadocIndex javadocIndex) {
         this.model = model;
         this.wocNs = wocNs;
         this.appNs = appNs;
         this.classHierarchy = classHierarchy;
         this.apiVersion = apiVersion;
+        this.javadocIndex = javadocIndex;
 
         // Initialize existing elements
         this.wocClass = model.createResource(wocNs + "Class");
@@ -84,6 +94,9 @@ public class CodeOntologyVisitor extends SimpleElementVisitor14<Resource, Void> 
         this.parameterClass = model.createResource(wocNs + "Parameter");
         this.parameterIndex = model.createProperty(wocNs + "parameterIndex");
         this.parameterType = model.createProperty(wocNs + "parameterType");
+        this.parameterName = model.createProperty("http://www.w3.org/2000/01/rdf-schema#label");
+        this.methodJavadoc = model.createProperty(appNs + "methodJavadoc");
+        this.parameterJavadoc = model.createProperty(appNs + "paramJavadoc");
 
         // Initialize modifier elements
         this.hasModifier = model.createProperty(wocNs + "hasModifier");
@@ -184,10 +197,20 @@ public class CodeOntologyVisitor extends SimpleElementVisitor14<Resource, Void> 
         boolean constructor = e.getKind() == ElementKind.CONSTRUCTOR;
         String memberName = constructor ? "constructor" : e.getSimpleName().toString();
         String memberUri = buildMemberUri(parentClass, e, memberName);
+        List<String> parameterTypes = new ArrayList<>();
+        for (VariableElement parameter : e.getParameters()) {
+            parameterTypes.add(normalizeTypeName(parameter.asType().toString()));
+        }
+        JavadocIndex.ExecutableDocumentation documentation = javadocIndex == null ? null
+                : javadocIndex.find(parentClass.getQualifiedName().toString(), e.getSimpleName().toString(),
+                        parameterTypes);
 
         Resource methodRes = model.createResource(memberUri)
                 .addProperty(RDF.type, constructor ? wocConstructor : wocMethod)
                 .addProperty(hasSimpleName, e.getSimpleName().toString());
+        if (documentation != null && documentation.getComment() != null) {
+            methodRes.addProperty(methodJavadoc, documentation.getComment());
+        }
         if (!constructor) {
             String returnTypeName = normalizeTypeName(e.getReturnType().toString());
             Resource returnTypeResource = model.createResource(appNs + returnTypeName)
@@ -195,7 +218,7 @@ public class CodeOntologyVisitor extends SimpleElementVisitor14<Resource, Void> 
             methodRes.addProperty(hasReturnType, returnTypeResource);
         }
         if (!methodRes.hasProperty(parameters)) {        
-                methodRes.addProperty(parameters, createParameterList(e));
+                methodRes.addProperty(parameters, createParameterList(e, documentation));
         }
         
         applyVersion(methodRes);
@@ -206,7 +229,8 @@ public class CodeOntologyVisitor extends SimpleElementVisitor14<Resource, Void> 
         return methodRes;
     }
 
-    private RDFList createParameterList(ExecutableElement member) {
+    private RDFList createParameterList(ExecutableElement member,
+            JavadocIndex.ExecutableDocumentation documentation) {
         List<RDFNode> parameterResources = new ArrayList<>();
         int index = 0;
         for (VariableElement parameter : member.getParameters()) {
@@ -214,6 +238,15 @@ public class CodeOntologyVisitor extends SimpleElementVisitor14<Resource, Void> 
                     .addProperty(RDF.type, parameterClass)
                     .addLiteral(parameterIndex, model.createTypedLiteral(index++))
                     .addProperty(parameterType, normalizeTypeName(parameter.asType().toString()));
+            JavadocIndex.ParameterDocumentation parameterDocumentation =
+                    documentation != null && index <= documentation.getParameters().size()
+                            ? documentation.getParameters().get(index - 1) : null;
+            String name = parameterDocumentation == null
+                    ? parameter.getSimpleName().toString() : parameterDocumentation.getName();
+            parameterResource.addProperty(parameterName, name);
+            if (parameterDocumentation != null && parameterDocumentation.getComment() != null) {
+                parameterResource.addProperty(parameterJavadoc, parameterDocumentation.getComment());
+            }
             parameterResources.add(parameterResource);
         }
         return model.createList(parameterResources.iterator());

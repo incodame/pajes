@@ -27,6 +27,15 @@ java -cp target/pajes-0.0.1-SNAPSHOT.jar org.incodame.pajes.apiref.JavaLibToRdf 
 ```
 This writes the API surface to `refmodule-1.2.3.ttl` in the current directory. The
 version is also recorded as `icodm:applFor` on the generated API resources.
+An optional Javadoc HTML archive can be supplied as a third argument:
+```sh
+java -cp target/pajes-0.0.1-SNAPSHOT.jar org.incodame.pajes.apiref.JavaLibToRdf \
+  "/path/to/library.jar" "1.2.3" "/path/to/library-sources.jar"
+```
+When supplied, method comments are emitted as `icodm:methodJavadoc`, parameter
+names as `rdfs:label`, and parameter comments as `icodm:paramJavadoc`. Parameter
+names are still emitted without the optional archive, using names available in
+the compiled library.
 
 To generate RDF facts for all Java source files mentioned in a patch using Spoon,
 pass the source base directory followed by the patch file:

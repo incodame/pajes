@@ -27,6 +27,7 @@ public class CodeOntologyReporter implements Reporter {
     static final String OUTPUT_FILE_PROPERTY = "pajes.rdf.output";
     static final String OUTPUT_DIRECTORY_PROPERTY = "pajes.rdf.output.directory";
     static final String VERSION_CONTEXT_KEY = "pajes.api.version";
+    static final String JAVADOC_CONTEXT_KEY = "pajes.api.javadoc";
 
     @Override
     public void initialize(AnalysisContext analysisContext) {
@@ -53,7 +54,12 @@ public class CodeOntologyReporter implements Reporter {
         if (hierarchyData != null && !(hierarchyData instanceof ClassHierarchy)) {
             throw new IllegalStateException("Invalid class hierarchy data in Revapi analysis context");
         }
-        this.visitor = new CodeOntologyVisitor(model, WOC_NS, APP_NS, (ClassHierarchy) hierarchyData, (String) versionData);
+        Object javadocData = analysisContext.getData(JAVADOC_CONTEXT_KEY);
+        if (javadocData != null && !(javadocData instanceof JavadocIndex)) {
+            throw new IllegalStateException("Invalid Javadoc index data in Revapi analysis context");
+        }
+        this.visitor = new CodeOntologyVisitor(model, WOC_NS, APP_NS, (ClassHierarchy) hierarchyData,
+                (String) versionData, (JavadocIndex) javadocData);
     }
 
     @Override
