@@ -658,6 +658,72 @@ class ClientUseCompilerTest {
     }
 
     @Test
+    void linksTypeConsumerParameterConstraintsToTheConsumedApiType(@TempDir Path tempDir) throws Exception {
+        Path apiSource = tempDir.resolve("src/org/apache/jena/rdf/model/Model.java");
+        Files.createDirectories(apiSource.getParent());
+        Files.writeString(apiSource,
+                "package org.apache.jena.rdf.model;\n"
+                        + "public class Model { public String nsPrefix; }\n");
+
+        Path clientSource = tempDir.resolve("src/example/Client.java");
+        Files.createDirectories(clientSource.getParent());
+        String clientText = "package example;\n"
+                + "import org.apache.jena.rdf.model.Model;\n"
+                + "@interface ApiTypeConsumer { }\n"
+                + "@interface ApiExpectedFormat { String select(); String format(); }\n"
+                + "public class Client {\n"
+                + "    @ApiTypeConsumer\n"
+                + "    public void check(@ApiExpectedFormat(select = \"nsPrefix\", "
+                + "format = \"aggregate('icodm:', packageName)\") Model model) { }\n"
+                + "}\n";
+        Files.writeString(clientSource, clientText);
+
+        ClientUseProcessor processor = new ClientUseProcessor("org.apache.jena.rdf.model", "main",
+                Map.of("ApiExpectedFormat", List.of("select", "format")));
+        Launcher launcher = new Launcher();
+        launcher.getEnvironment().setComplianceLevel(17);
+        launcher.getEnvironment().setNoClasspath(true);
+        launcher.addInputResource(apiSource.toString());
+        launcher.addInputResource(clientSource.toString());
+        launcher.addProcessor(processor);
+        launcher.run();
+
+        String namespace = "https://github.com/Incodam/";
+        org.apache.jena.rdf.model.Model constraints = processor.getConstraintModel();
+        org.apache.jena.rdf.model.Resource client = constraints.getResource(namespace + "example.Client");
+        org.apache.jena.rdf.model.Resource constraint = client.getProperty(
+                constraints.createProperty(namespace + "onTypeUse")).getResource();
+        assertTrue(constraint.getURI().startsWith(namespace + "org.apache.jena.rdf.model.Model_constraint_"));
+
+        int consumerLine = clientText.lines().toList().indexOf(
+                "    public void check(@ApiExpectedFormat(select = \"nsPrefix\", "
+                        + "format = \"aggregate('icodm:', packageName)\") Model model) { }") + 1;
+        assertTrue(constraint.getURI().endsWith("_" + consumerLine + "_1"), constraint.getURI());
+        org.apache.jena.rdf.model.Resource annotation = constraint.getProperty(
+                constraints.createProperty(namespace + "annotations")).getResource();
+        assertEquals("ApiExpectedFormat", annotation.getProperty(
+                constraints.createProperty("http://www.w3.org/2000/01/rdf-schema#label")).getString());
+
+        org.apache.jena.rdf.model.RDFList properties = annotation.getProperty(
+                constraints.createProperty(namespace + "annotationProperties"))
+                .getResource().as(org.apache.jena.rdf.model.RDFList.class);
+        List<org.apache.jena.rdf.model.Resource> propertyResources = properties.asJavaList().stream()
+                .map(org.apache.jena.rdf.model.RDFNode::asResource)
+                .toList();
+        assertEquals(List.of("select", "format"), properties.asJavaList().stream()
+                .map(org.apache.jena.rdf.model.RDFNode::asResource)
+                .map(resource -> resource.getProperty(
+                        constraints.createProperty("http://www.w3.org/2000/01/rdf-schema#label")).getString())
+                .toList());
+        assertTrue(propertyResources.get(0).getURI().endsWith("_a_ef_select"));
+        assertTrue(propertyResources.get(1).getURI().endsWith("_a_ef_format"));
+        List<String> values = propertyResources.stream()
+                .map(resource -> resource.getProperty(RDF.value).getString())
+                .toList();
+        assertEquals(List.of("nsPrefix", "aggregate('icodm:', packageName)"), values);
+    }
+
+    @Test
     void handlesAnonymousClassesWithoutPackageMetadata(@TempDir Path tempDir) throws Exception {
         Path sourceFile = tempDir.resolve("AnonymousExample.java");
         Files.writeString(sourceFile,

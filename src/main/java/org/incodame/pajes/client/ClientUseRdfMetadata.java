@@ -2,6 +2,7 @@ package org.incodame.pajes.client;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.PrintStream;
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.Set;
@@ -13,6 +14,8 @@ import org.apache.jena.rdf.model.Model;
 import org.apache.jena.rdf.model.Property;
 import org.apache.jena.rdf.model.Resource;
 import org.apache.jena.vocabulary.RDF;
+import org.incodame.pajes.annotations.ApiExpectedFormat;
+import org.incodame.pajes.annotations.ApiTypeConsumer;
 
 final class ClientUseRdfMetadata {
 
@@ -21,6 +24,17 @@ final class ClientUseRdfMetadata {
     private static final Pattern VERSION_PATTERN = Pattern.compile("\\d+(?:\\.[A-Za-z0-9_-]+)*");
 
     private ClientUseRdfMetadata() {
+    }
+
+    @ApiTypeConsumer
+    static void checkModel(
+        @ApiExpectedFormat(select = "nsPrefix", format = "aggregate('icodm:', packageName)")
+        Model generatedModel, PrintStream log) {
+        if (!generatedModel.containsResource(generatedModel.createResource(ICODM + "org.incodame.pajes.client"))) {
+            throw new IllegalStateException(
+                    "The generated RDF model does not contain the expected resource for the package org.incodame.pajes.client");
+        }
+        log.println("Generated RDF model passed metadata validation.");
     }
 
     static String resolveTargetVersion(String[] classpath, String targetPackage) throws IOException {

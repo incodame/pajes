@@ -62,6 +62,7 @@ public class ClientUseProcessor extends AbstractProcessor<CtElement> {
     private final Property onMethodReturn = constraintModel.createProperty(ICODM + "onMethodReturn");
     private final Property onCallback = constraintModel.createProperty(ICODM + "onCallback");
     private final Property onCallbackReturn = constraintModel.createProperty(ICODM + "onCallbackReturn");
+    private final Property onTypeUse = constraintModel.createProperty(ICODM + "onTypeUse");
     private final Property hasContraints = constraintModel.createProperty(ICODM + "hasContraints");
     private final Property annotations = constraintModel.createProperty(ICODM + "annotations");
     private final Property annotationProperties = constraintModel.createProperty(ICODM + "annotationProperties");
@@ -143,6 +144,9 @@ public class ClientUseProcessor extends AbstractProcessor<CtElement> {
         else if (element instanceof CtMethod<?> && isApiCallbackWrapper((CtMethod<?>) element)) {
             addApiCallbackWrapper((CtMethod<?>) element);
         }
+        else if (element instanceof CtMethod<?> && isApiTypeConsumer((CtMethod<?>) element)) {
+            addApiTypeConsumer((CtMethod<?>) element);
+        }
         else if (element instanceof CtClass<?> || element instanceof CtInterface<?>) {
             CtType<?> clientType = (CtType<?>) element;
             recordClientPackage(clientType);
@@ -202,6 +206,35 @@ public class ClientUseProcessor extends AbstractProcessor<CtElement> {
     private boolean isApiCallbackWrapper(CtMethod<?> method) {
         return method.getAnnotations().stream()
                 .anyMatch(annotation -> "ApiCallbackWrapper".equals(annotation.getAnnotationType().getSimpleName()));
+    }
+
+    private boolean isApiTypeConsumer(CtMethod<?> method) {
+        return method.getAnnotations().stream()
+                .anyMatch(annotation -> "ApiTypeConsumer".equals(annotation.getAnnotationType().getSimpleName()));
+    }
+
+    private void addApiTypeConsumer(CtMethod<?> consumerMethod) {
+        CtType<?> clientType = consumerMethod.getDeclaringType();
+        Resource constraintClientResource = constraintModel.createResource(ICODM + clientType.getQualifiedName())
+                .addProperty(constraintModel.createProperty(ICODM + "applBranch"), branch);
+        int sourceLine = consumerMethod.getPosition().isValidPosition()
+                ? consumerMethod.getPosition().getLine() : -1;
+
+        for (int parameterIndex = 0; parameterIndex < consumerMethod.getParameters().size(); parameterIndex++) {
+            CtParameter<?> parameter = consumerMethod.getParameters().get(parameterIndex);
+            CtTypeReference<?> parameterType = parameter.getType();
+            if (parameterType == null || !isInTargetPackage(parameterType.getQualifiedName())) {
+                continue;
+            }
+
+            List<CtAnnotation<?>> matchedAnnotations = matchingAnnotations(parameter.getAnnotations());
+            for (int annotationIndex = 0; annotationIndex < matchedAnnotations.size(); annotationIndex++) {
+                Resource constraint = createConstraint(
+                        ICODM + parameterType.getQualifiedName(), sourceLine,
+                        "_" + (parameterIndex + 1), matchedAnnotations.get(annotationIndex), annotationIndex);
+                constraintClientResource.addProperty(onTypeUse, constraint);
+            }
+        }
     }
 
     private void addApiCallbackWrapper(CtMethod<?> callbackMethod) {
@@ -481,8 +514,10 @@ public class ClientUseProcessor extends AbstractProcessor<CtElement> {
 
     private String annotationCode(String annotationName) {
         StringBuilder code = new StringBuilder();
-        for (int index = 0; index < annotationName.length(); index++) {
-            char character = annotationName.charAt(index);
+        String codeName = annotationName.startsWith("Api") && annotationName.length() > 3
+                ? annotationName.substring(3) : annotationName;
+        for (int index = 0; index < codeName.length(); index++) {
+            char character = codeName.charAt(index);
             if (Character.isUpperCase(character)) {
                 code.append(Character.toLowerCase(character));
             }

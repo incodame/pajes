@@ -4,7 +4,7 @@
 
 icodm:org.incodame.pajes.client.ClientUseRdfMetadata
         a                 woc:Class , owl:Class;
-        woc:calls         icodm:org.apache.jena.rdf.model.Resource_addProperty_877b2aa90db3_stable , icodm:org.apache.jena.rdf.model.Resource_addProperty_dd51bdb9c2e3_stable , icodm:org.apache.jena.rdf.model.ModelCon_createProperty_e04c9b186dd9_stable , icodm:org.apache.jena.rdf.model.Model_createResource_08dd8f5d5f48_stable , icodm:org.apache.jena.rdf.model.Model_setNsPrefix_bea38db0530e_stable;
+        woc:calls         icodm:org.apache.jena.rdf.model.Resource_addProperty_877b2aa90db3_stable , icodm:org.apache.jena.rdf.model.Resource_addProperty_dd51bdb9c2e3_stable , icodm:org.apache.jena.rdf.model.ModelCon_createProperty_e04c9b186dd9_stable , icodm:org.apache.jena.rdf.model.Model_setNsPrefix_bea38db0530e_stable , icodm:org.apache.jena.rdf.model.Model_containsResource_55d477410c7e_stable , icodm:org.apache.jena.rdf.model.Model_createResource_08dd8f5d5f48_stable;
         icodm:applBranch  "main" .
 
 icodm:org.incodame.pajes.apiref.JavaPatchToRdf

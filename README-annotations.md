@@ -1,9 +1,9 @@
 # Annotations for client projects
 
 The annotations in Pajes' `org.incodame.pajes.annotations` package
-(`EnumValue`, `ValueRange`, and `ApiWrapper`) are for test usage within Pajes
-only. `ApiCallbackWrapper` is also provided for internal tests. Client projects
-should not depend on or use these annotations.
+(`EnumValue`, `ValueRange`, `ApiWrapper`, `ApiCallbackWrapper`,
+`ApiTypeConsumer`, and `ApiExpectedFormat`) are for test usage within Pajes
+only. Client projects should not depend on or use these annotations.
 
 Define project-owned annotations for the constraints your API needs. Configure
 each constraint annotation in `pajes-config.yaml` under `client-annotations`,
@@ -57,3 +57,11 @@ method's source line identifies its constraints. Parameter constraints are
 linked from the implementing class with `icodm:onCallback`, and return
 constraints with `icodm:onCallbackReturn`. The method must resolve to exactly
 one method in the selected target package.
+
+To attach semantic constraints to API types consumed by a client method,
+annotate the method with a project-owned `ApiTypeConsumer` marker. Configured
+constraint annotations may then be placed on parameters whose declared types
+belong to the selected API package. Pajes links those constraints from the
+client class using `icodm:onTypeUse`; the constraint identifier uses the API
+type, the consumer method's source line, and the parameter position. Annotation
+property values are transferred as written and are not interpreted by Pajes.
