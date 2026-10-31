@@ -31,7 +31,7 @@ public class CodeOntologyVisitor extends SimpleElementVisitor14<Resource, Void> 
     private final String appNs;
     private final ClassHierarchy classHierarchy;
     private final String apiVersion;
-    private final JavadocIndex javadocIndex;
+    private final SourceJavadocIndex javadocIndex;
 
     // Core Classes & Structural Properties
     private final Resource wocClass;
@@ -69,7 +69,7 @@ public class CodeOntologyVisitor extends SimpleElementVisitor14<Resource, Void> 
     }
 
     public CodeOntologyVisitor(Model model, String wocNs, String appNs, ClassHierarchy classHierarchy, String apiVersion,
-            JavadocIndex javadocIndex) {
+            SourceJavadocIndex javadocIndex) {
         this.model = model;
         this.wocNs = wocNs;
         this.appNs = appNs;
@@ -201,8 +201,9 @@ public class CodeOntologyVisitor extends SimpleElementVisitor14<Resource, Void> 
         for (VariableElement parameter : e.getParameters()) {
             parameterTypes.add(normalizeTypeName(parameter.asType().toString()));
         }
-        JavadocIndex.ExecutableDocumentation documentation = javadocIndex == null ? null
-                : javadocIndex.find(parentClass.getQualifiedName().toString(), e.getSimpleName().toString(),
+        SourceJavadocIndex.ExecutableDocumentation documentation = javadocIndex == null ? null
+                : javadocIndex.find(parentClass.getQualifiedName().toString(),
+                        constructor ? parentClass.getSimpleName().toString() : e.getSimpleName().toString(),
                         parameterTypes);
 
         Resource methodRes = model.createResource(memberUri)
@@ -230,7 +231,7 @@ public class CodeOntologyVisitor extends SimpleElementVisitor14<Resource, Void> 
     }
 
     private RDFList createParameterList(ExecutableElement member,
-            JavadocIndex.ExecutableDocumentation documentation) {
+            SourceJavadocIndex.ExecutableDocumentation documentation) {
         List<RDFNode> parameterResources = new ArrayList<>();
         int index = 0;
         for (VariableElement parameter : member.getParameters()) {
@@ -238,7 +239,7 @@ public class CodeOntologyVisitor extends SimpleElementVisitor14<Resource, Void> 
                     .addProperty(RDF.type, parameterClass)
                     .addLiteral(parameterIndex, model.createTypedLiteral(index++))
                     .addProperty(parameterType, normalizeTypeName(parameter.asType().toString()));
-            JavadocIndex.ParameterDocumentation parameterDocumentation =
+            SourceJavadocIndex.ParameterDocumentation parameterDocumentation =
                     documentation != null && index <= documentation.getParameters().size()
                             ? documentation.getParameters().get(index - 1) : null;
             String name = parameterDocumentation == null

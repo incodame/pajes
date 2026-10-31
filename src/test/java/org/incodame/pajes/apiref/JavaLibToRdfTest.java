@@ -76,13 +76,9 @@ class JavaLibToRdfTest {
         }
 
         Path sourcesJar = tempDir.resolve("library-sources.jar");
-        String javadocHtml = "<html><body><section class=\"detail\" id=\"setLoc(java.lang.String)\">"
-                + "<h3>setLoc</h3><div class=\"block\">Sets the information how to retrieve a parameter's value</div>"
-                + "<dl><dt>Parameters:</dt><dd><code>loc</code> - a prolog predicate describing how to retrieve "
-                + "the parameter's value</dd></dl></section></body></html>";
         try (JarOutputStream jar = new JarOutputStream(Files.newOutputStream(sourcesJar))) {
-            jar.putNextEntry(new JarEntry("demo/Parameter.html"));
-            jar.write(javadocHtml.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            jar.putNextEntry(new JarEntry("demo/Parameter.java"));
+            jar.write(Files.readAllBytes(sourceFile));
             jar.closeEntry();
         }
 
@@ -104,7 +100,7 @@ class JavaLibToRdfTest {
             Resource method = model.listResourcesWithProperty(
                     model.createProperty("http://webofcode.orghasSimpleName"), "setLoc")
                     .nextResource();
-            assertEquals("Sets the information how to retrieve a parameter's value",
+            assertEquals("Sets the information how to retrieve a parameter's value.",
                     method.getProperty(model.createProperty("https://github.com/Incodam/methodJavadoc")).getString());
             Resource parameter = method.getProperty(model.createProperty("http://webofcode.orgparameters"))
                     .getResource().as(RDFList.class).getHead().asResource();

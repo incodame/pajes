@@ -31,25 +31,24 @@ public class JavaLibToRdf {
             throw new IOException("Sources JAR does not exist or is not readable: " + sourcesJar);
         }
 
-        try (JavadocIndex javadocIndex = sourcesJar == null
-                ? JavadocIndex.empty() : JavadocIndex.open(sourcesJar)) {
-            ClassHierarchy classHierarchy = ClassHierarchy.read(jarFile);
-            Revapi revapi = Revapi.builder()
-                    .withAnalyzersFromThreadContextClassLoader()
-                    .withReporters(CodeOntologyReporter.class)
-                    .build();
+        SourceJavadocIndex javadocIndex = sourcesJar == null
+                ? SourceJavadocIndex.empty() : SourceJavadocIndex.read(sourcesJar);
+        ClassHierarchy classHierarchy = ClassHierarchy.read(jarFile);
+        Revapi revapi = Revapi.builder()
+                .withAnalyzersFromThreadContextClassLoader()
+                .withReporters(CodeOntologyReporter.class)
+                .build();
 
-            AnalysisContext analysisContext = AnalysisContext.builder(revapi)
-                    .withOldAPI(API.of(new FileArchive(jarFile)).build())
-                    .withNewAPI(API.of().build())
-                    .withData(ClassHierarchy.ANALYSIS_CONTEXT_KEY, classHierarchy)
-                    .withData(CodeOntologyReporter.VERSION_CONTEXT_KEY, version)
-                    .withData(CodeOntologyReporter.JAVADOC_CONTEXT_KEY, javadocIndex)
-                    .build();
+        AnalysisContext analysisContext = AnalysisContext.builder(revapi)
+                .withOldAPI(API.of(new FileArchive(jarFile)).build())
+                .withNewAPI(API.of().build())
+                .withData(ClassHierarchy.ANALYSIS_CONTEXT_KEY, classHierarchy)
+                .withData(CodeOntologyReporter.VERSION_CONTEXT_KEY, version)
+                .withData(CodeOntologyReporter.JAVADOC_CONTEXT_KEY, javadocIndex)
+                .build();
 
-            try (AnalysisResult result = revapi.analyze(analysisContext)) {
-                result.throwIfFailed();
-            }
+        try (AnalysisResult result = revapi.analyze(analysisContext)) {
+            result.throwIfFailed();
         }
     }
 }
