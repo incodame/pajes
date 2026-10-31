@@ -81,15 +81,15 @@ icodm:org.incodame.pajes.client.ClientUseProcessor
 icodm:org.incodame.pajes.apiref.JavaPatchToRdf
         icodm:applBranch  "main" .
 
-icodm:org.apache.jena.rdf.model.Model_size_fe3e41004f80_stable_constraint_176_a_vr_lower
-        rdf:type    icodm:CoAProperty;
-        rdf:value   "1"^^<http://www.w3.org/2001/XMLSchema#int>;
-        rdfs:label  "lower" .
-
 icodm:org.apache.jena.rdf.model.Model_constraint_30_1_a
         rdf:type                    woc:Annotation , icodm:JavaConstraintAnnotation;
         rdfs:label                  "ApiExpectedFormat";
         icodm:annotationProperties  ( icodm:org.apache.jena.rdf.model.Model_constraint_30_1_a_ef_select icodm:org.apache.jena.rdf.model.Model_constraint_30_1_a_ef_format ) .
+
+icodm:org.apache.jena.rdf.model.Model_size_fe3e41004f80_stable_constraint_176_a_vr_lower
+        rdf:type    icodm:CoAProperty;
+        rdf:value   "1"^^<http://www.w3.org/2001/XMLSchema#int>;
+        rdfs:label  "lower" .
 
 icodm:org.incodame.pajes.client.ClientUseToRdf
         icodm:applBranch      "main";

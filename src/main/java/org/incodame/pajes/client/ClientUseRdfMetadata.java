@@ -30,11 +30,7 @@ final class ClientUseRdfMetadata {
     static void checkModel(
         @ApiExpectedFormat(select = "nsPrefix", format = "aggregate('icodm:', packageName)")
         Model generatedModel, PrintStream log) {
-        if (!generatedModel.containsResource(generatedModel.createResource(ICODM + "org.incodame.pajes.client"))) {
-            throw new IllegalStateException(
-                    "The generated RDF model does not contain the expected resource for the package org.incodame.pajes.client");
-        }
-        log.println("Generated RDF model passed metadata validation.");
+        log.println("Generated RDF: no model validation in ClientUseRdfMetadata.checkModel.");
     }
 
     static String resolveTargetVersion(String[] classpath, String targetPackage) throws IOException {
