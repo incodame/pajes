@@ -2,7 +2,7 @@
 
 These examples query the Pajes RDF data served by QLever at
 `http://localhost:7001`. They use the `icodm:` vocabulary defined in
-[`owl/pajes.owl`](./owl/pajes.owl), together with Web of Code (`woc`) terms.
+[`owl/pajes.ttl`](./owl/pajes.ttl), together with Web of Code (`woc`) terms.
 
 Run a query from the command line by passing it to QLever, for example:
 
@@ -229,5 +229,5 @@ deleted methods.
   `refmodule-0.0.1.ttl` and `refmodule-patch.ttl`.
 - Queries 2–5 use API or patch statements in `refmodule-0.0.1.ttl` and
   `refmodule-patch.ttl`.
-- Include `owl/pajes.owl` in the index if you also want to query the ontology's
+- Include `owl/pajes.ttl` in the index if you also want to query the ontology's
   class and property declarations.

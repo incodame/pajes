@@ -13,15 +13,15 @@ mkdir -p "$QLEVER_DIR/data"
 cp "$PAJES_DIR/refmodule-0.0.1.ttl" \
    "$PAJES_DIR/refmodule-patch.ttl" \
    "$PAJES_DIR/client-use.ttl" \
-   "$PAJES_DIR/owl/pajes.owl" \
+   "$PAJES_DIR/owl/pajes.ttl" \
    "$QLEVER_DIR/data/"
 cd "$QLEVER_DIR"
 
 qlever index \
   --name pajes \
   --format ttl \
-  --input-files 'data/refmodule-0.0.1.ttl data/refmodule-patch.ttl data/client-use.ttl data/pajes.owl' \
-  --multi-input-json '[{"cmd":"cat data/refmodule-0.0.1.ttl","format":"ttl","graph":"-","parallel":"false"},{"cmd":"cat data/refmodule-patch.ttl","format":"ttl","graph":"-","parallel":"false"},{"cmd":"cat data/client-use.ttl","format":"ttl","graph":"-","parallel":"false"},{"cmd":"cat data/pajes.owl","format":"ttl","graph":"-","parallel":"false"}]' \
+  --input-files 'data/refmodule-0.0.1.ttl data/refmodule-patch.ttl data/client-use.ttl data/pajes.ttl' \
+  --multi-input-json '[{"cmd":"cat data/refmodule-0.0.1.ttl","format":"ttl","graph":"-","parallel":"false"},{"cmd":"cat data/refmodule-patch.ttl","format":"ttl","graph":"-","parallel":"false"},{"cmd":"cat data/client-use.ttl","format":"ttl","graph":"-","parallel":"false"},{"cmd":"cat data/pajes.ttl","format":"ttl","graph":"-","parallel":"false"}]' \
   --system native
 
 qlever start \

@@ -43,6 +43,27 @@ icodm:LibraryDependency
     rdfs:label "Library dependency"@en ;
     rdfs:comment "A versioned dependency on a Java library for a target package and branch."@en .
 
+icodm:ApiClientConstraint
+    a owl:Class ;
+    rdfs:label "API client constraint"@en ;
+    rdfs:comment "A configured constraint extracted from a client use of an API method or type."@en .
+
+icodm:ApiClientConstraintSet
+    a owl:Class ;
+    rdfs:label "API client constraint set"@en ;
+    rdfs:comment "An ordered set of parameter constraints associated with one API method call."@en .
+
+icodm:JavaConstraintAnnotation
+    a owl:Class ;
+    rdfs:label "Java constraint annotation"@en ;
+    rdfs:comment "A Java annotation represented as a constraint in client-use data."@en ;
+    rdfs:subClassOf woc:Annotation .
+
+icodm:CoAProperty
+    a owl:Class ;
+    rdfs:label "Constraint annotation property"@en ;
+    rdfs:comment "A named property value transferred from a Java constraint annotation."@en .
+
 #################################################################
 # Object properties
 #################################################################
@@ -73,12 +94,82 @@ icodm:isNewConstructor
     rdfs:domain woc:Constructor ;
     rdfs:range woc:Class .
 
+icodm:isPatchOfConstructor
+    a owl:ObjectProperty ;
+    rdfs:label "is patch of constructor"@en ;
+    rdfs:comment "Links a patched constructor record to the corresponding stable constructor record."@en ;
+    rdfs:domain woc:Constructor ;
+    rdfs:range woc:Constructor .
+
+icodm:isNewMethod
+    a owl:ObjectProperty ;
+    rdfs:label "is new method of"@en ;
+    rdfs:comment "Links a method introduced by a patch to its containing class."@en ;
+    rdfs:domain woc:Method ;
+    rdfs:range woc:Class .
+
 icodm:isPatchOfMethod
     a owl:ObjectProperty ;
     rdfs:label "is patch of method"@en ;
     rdfs:comment "Links a patched method record to the corresponding stable method record."@en ;
     rdfs:domain woc:Method ;
     rdfs:range woc:Method .
+
+icodm:isDeleted
+    a owl:ObjectProperty ;
+    rdfs:label "is deleted"@en ;
+    rdfs:comment "Marks a Java type resource as deleted by linking it to itself."@en ;
+    rdfs:domain woc:Class ;
+    rdfs:range woc:Class .
+
+icodm:onMethodCall
+    a owl:ObjectProperty ;
+    rdfs:label "constraint on method call"@en ;
+    rdfs:domain woc:Class ;
+    rdfs:range icodm:ApiClientConstraintSet .
+
+icodm:onMethodReturn
+    a owl:ObjectProperty ;
+    rdfs:label "constraint on method return"@en ;
+    rdfs:domain woc:Class ;
+    rdfs:range icodm:ApiClientConstraint .
+
+icodm:onCallback
+    a owl:ObjectProperty ;
+    rdfs:label "constraint on callback parameters"@en ;
+    rdfs:domain woc:Class ;
+    rdfs:range icodm:ApiClientConstraintSet .
+
+icodm:onCallbackReturn
+    a owl:ObjectProperty ;
+    rdfs:label "constraint on callback return"@en ;
+    rdfs:domain woc:Class ;
+    rdfs:range icodm:ApiClientConstraint .
+
+icodm:onTypeUse
+    a owl:ObjectProperty ;
+    rdfs:label "constraint on API type use"@en ;
+    rdfs:domain woc:Class ;
+    rdfs:range icodm:ApiClientConstraint .
+
+icodm:hasContraints
+    a owl:ObjectProperty ;
+    rdfs:label "has constraints"@en ;
+    rdfs:comment "The spelling is retained for compatibility with generated client-use RDF."@en ;
+    rdfs:domain icodm:ApiClientConstraintSet ;
+    rdfs:range rdf:List .
+
+icodm:annotations
+    a owl:ObjectProperty ;
+    rdfs:label "annotations"@en ;
+    rdfs:domain icodm:ApiClientConstraint ;
+    rdfs:range icodm:JavaConstraintAnnotation .
+
+icodm:annotationProperties
+    a owl:ObjectProperty ;
+    rdfs:label "annotation properties"@en ;
+    rdfs:domain icodm:JavaConstraintAnnotation ;
+    rdfs:range rdf:List .
 
 woc:hasReturnType
     a owl:ObjectProperty ;
@@ -108,4 +199,17 @@ icodm:targetVersion
     rdfs:label "target version"@en ;
     rdfs:comment "The resolved version of the target library dependency."@en ;
     rdfs:domain icodm:LibraryDependency ;
+    rdfs:range xsd:string .
+
+icodm:methodJavadoc
+    a owl:DatatypeProperty ;
+    rdfs:label "method Javadoc"@en ;
+    rdfs:comment "The description text from a Java method or constructor Javadoc comment."@en ;
+    rdfs:range xsd:string .
+
+icodm:paramJavadoc
+    a owl:DatatypeProperty ;
+    rdfs:label "parameter Javadoc"@en ;
+    rdfs:comment "The description text from a Java @param Javadoc tag."@en ;
+    rdfs:domain woc:Parameter ;
     rdfs:range xsd:string .
