@@ -26,7 +26,7 @@ directory read-only into the RDFox task. Include:
 
 - `refmodule-0.0.1.ttl`
 - `refmodule-patch.ttl`
-- `owl/pajes.owl`
+- `owl/pajes.ttl`
 - Either `client-use.ttl` or `client-use-extended.ttl`, depending on which
   client-use data you want to query. Do not include both unless merging their
   overlapping data is intentional.
@@ -81,7 +81,7 @@ supports commands of this form:
 dstore create pajes
 import "/path/visible/inside/container/refmodule-0.0.1.ttl"
 import "/path/visible/inside/container/refmodule-patch.ttl"
-import "/path/visible/inside/container/pajes.owl"
+import "/path/visible/inside/container/pajes.ttl"
 import "/path/visible/inside/container/client-use.ttl"
 ```
 

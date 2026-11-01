@@ -1,0 +1,1452 @@
+@prefix :        <http://rdf.webofcode.org/woc/> .
+@prefix dcterms: <http://purl.org/dc/terms/> .
+@prefix owl:     <http://www.w3.org/2002/07/owl#> .
+@prefix rdf:     <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs:    <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xkos:    <http://rdf-vocabulary.ddialliance.org/xkos#> .
+@prefix xsd:     <http://www.w3.org/2001/XMLSchema#> .
+
+:hasInitializer  rdf:type   owl:InverseFunctionalProperty , owl:FunctionalProperty , owl:ObjectProperty;
+        rdfs:comment        "The hasInitializer property relates a variable declaration to the expression assigned to the declared variable"@en;
+        rdfs:domain         :VariableDeclarationStatement;
+        rdfs:label          "has initializer"@en;
+        rdfs:range          :Expression;
+        rdfs:subPropertyOf  :hasSubExpression;
+        owl:inverseOf       :isInitializerOf .
+
+:isModifierOf  rdf:type  owl:ObjectProperty;
+        rdfs:comment  "The isModifierOf property relates a modifier to the corresponding modifiable element."@en;
+        rdfs:domain   :Modifier;
+        rdfs:label    "is modifier of"@en;
+        rdfs:range    :Modifiable .
+
+:hasResource  rdf:type  owl:ObjectProperty;
+        rdfs:comment  "The hasResource property relates a try statement to each local variable declared to act as resource for the try statement"@en;
+        rdfs:domain   :TryStatement;
+        rdfs:label    "has resource"@en;
+        rdfs:range    :LocalVariable .
+
+:ExpressionStatement  rdf:type  owl:Class;
+        rdfs:comment     "An expression statement. that is a statement that wraps an expression"@en;
+        rdfs:label       "Expression statement"@en;
+        rdfs:subClassOf  :Statement;
+        rdfs:subClassOf  [ rdf:type                  owl:Restriction;
+                           owl:onClass               :Expression;
+                           owl:onProperty            :hasSubExpression;
+                           owl:qualifiedCardinality  "1"^^xsd:nonNegativeInteger
+                         ] .
+
+:BreakStatement  rdf:type  owl:Class;
+        rdfs:comment     "The BreakStatement class represents a break statement. The break statement has two forms: labeled and unlabeled. In case a break statement is labeled, the label is defined through the targetedLabel property"@en;
+        rdfs:label       "Break Statement"@en;
+        rdfs:subClassOf  :BranchingStatement .
+
+:isThrownExpressionOf
+        rdf:type            owl:InverseFunctionalProperty , owl:FunctionalProperty , owl:ObjectProperty;
+        rdfs:comment        "The isThrownExpressionOf property relates a thrown expression, to the throw statement it is contained in."@en;
+        rdfs:domain         :Expression;
+        rdfs:label          "is thrown expression of"@en;
+        rdfs:range          :ThrowStatement;
+        rdfs:subPropertyOf  :isSubExpressionOf .
+
+:hasCatchFormalParameter
+        rdf:type      owl:ObjectProperty;
+        rdfs:comment  "The hasCatchFormalParameter property relates a catch clause to its formal parameters, namely the throwable objects it caughts"@en;
+        rdfs:domain   :CatchBlock;
+        rdfs:label    "has catch formal parameter"@en;
+        rdfs:range    :Class .
+
+:hasNextStatement  rdf:type  owl:InverseFunctionalProperty , owl:FunctionalProperty , owl:ObjectProperty;
+        rdfs:comment        "The hasNextStatement property relates a statement to the next statement to be executed."@en;
+        rdfs:domain         :Statement;
+        rdfs:label          "next"@en;
+        rdfs:range          :Statement;
+        rdfs:subPropertyOf  xkos:next;
+        owl:inverseOf       :hasPreviousStatement .
+
+:Final  rdf:type      :Modifier , owl:NamedIndividual;
+        rdfs:comment  "The final modifier"@en;
+        rdfs:label    "Final"@en .
+
+[ rdf:type     owl:AllDisjointClasses;
+  owl:members  ( :CodeElement :Library :Project )
+] .
+
+:LabeledBlock  rdf:type  owl:Class;
+        rdfs:comment     "A labeled block of code, namely a case-labeled block or a default-labeled block"@en;
+        rdfs:label       "Labeled Block"@en;
+        rdfs:subClassOf  :BlockStatement;
+        rdfs:subClassOf  [ rdf:type           owl:Restriction;
+                           owl:allValuesFrom  :LabeledBlock;
+                           owl:onProperty     :hasNextStatement
+                         ] .
+
+:hasLeftHandSide  rdf:type  owl:InverseFunctionalProperty , owl:FunctionalProperty , owl:ObjectProperty;
+        rdfs:comment        "The hasLeftHandSide property relates a assignement expression to the left hand side expression it contains"@en;
+        rdfs:domain         :AssignmentExpression;
+        rdfs:label          "has left hand side"@en;
+        rdfs:range          :Expression;
+        rdfs:subPropertyOf  :hasSubExpression;
+        owl:inverseOf       :isLeftHandSideOf .
+
+:Type   rdf:type         owl:Class;
+        rdfs:comment     "A type"@en;
+        rdfs:label       "Type"@en;
+        rdfs:subClassOf  :CodeElement .
+
+:Library  rdf:type       owl:Class;
+        rdfs:comment     "A library"@en;
+        rdfs:label       "Library"@en;
+        rdfs:subClassOf  [ rdf:type                  owl:Restriction;
+                           owl:onDataRange           xsd:string;
+                           owl:onProperty            :hasName;
+                           owl:qualifiedCardinality  "1"^^xsd:nonNegativeInteger
+                         ] .
+
+:invokes  rdf:type          owl:FunctionalProperty , owl:ObjectProperty;
+        rdfs:comment        "The invokes property relates a invocation expression to the invoked executable."@en;
+        rdfs:domain         :ExecutableInvocationExpression;
+        rdfs:label          "invokes"@en;
+        rdfs:range          :Executable;
+        rdfs:subPropertyOf  owl:topObjectProperty .
+
+xkos:generalizes  rdf:type  owl:ObjectProperty .
+
+xkos:specializes  rdf:type  owl:ObjectProperty .
+
+:isReturnedBy  rdf:type  owl:InverseFunctionalProperty , owl:ObjectProperty;
+        rdfs:comment   "The isReturnedBy property relates a variable to the methods that return that variable."@en;
+        rdfs:domain    :Variable;
+        rdfs:label     "is returned by"@en;
+        rdfs:range     :Method;
+        owl:inverseOf  :returns .
+
+:hasThenBranch  rdf:type    owl:InverseFunctionalProperty , owl:FunctionalProperty , owl:ObjectProperty;
+        rdfs:comment        "The hasThenBranch property relates a if-then-else statement to the statement declared in the \"then\" branch"@en;
+        rdfs:domain         :IfThenElseStatement;
+        rdfs:label          "has then branch"@en;
+        rdfs:range          :Statement;
+        rdfs:subPropertyOf  :hasSubStatement;
+        owl:inverseOf       :isThenBranchOf .
+
+:isBodyOf  rdf:type         owl:InverseFunctionalProperty , owl:FunctionalProperty , owl:ObjectProperty;
+        rdfs:comment        "The isBodyOf property relates a block to the exexcutable or statement it is the body of."@en;
+        rdfs:domain         :BlockStatement;
+        rdfs:label          "is body of"@en;
+        rdfs:range          [ rdf:type     owl:Class;
+                              owl:unionOf  ( :Executable :LoopStatement :TryStatement )
+                            ];
+        rdfs:subPropertyOf  :isSubStatementOf .
+
+:isLeftHandSideOf  rdf:type  owl:InverseFunctionalProperty , owl:FunctionalProperty , owl:ObjectProperty;
+        rdfs:comment        "The isLeftHandSideOf property relates an expression that is used as left hand side expression of an assignemnt, to the corresponding assignment expression"@en;
+        rdfs:domain         :Expression;
+        rdfs:label          "is left hand side of"@en;
+        rdfs:range          :AssignmentExpression;
+        rdfs:subPropertyOf  :isSubExpressionOf .
+
+:Default  rdf:type    :AccessModifier , owl:NamedIndividual;
+        rdfs:comment  "The default modifier"@en;
+        rdfs:label    "Default"@en .
+
+:Enum   rdf:type         owl:Class;
+        rdfs:comment     "An enumeration"@en;
+        rdfs:label       "Enum"@en;
+        rdfs:subClassOf  :ComplexType .
+
+:isPackageOf  rdf:type      owl:InverseFunctionalProperty , owl:ObjectProperty;
+        rdfs:comment        "The isPackageOf property relates a package to the types it declares."@en;
+        rdfs:domain         :Package;
+        rdfs:label          "is package of"@en;
+        rdfs:range          [ rdf:type     owl:Class;
+                              owl:unionOf  ( :AnnotationType :ComplexType )
+                            ];
+        rdfs:subPropertyOf  :declares .
+
+:LocalVariableDeclarationStatement
+        rdf:type         owl:Class;
+        rdfs:comment     "A local variable declaration"@en;
+        rdfs:label       "Local Variable Declaration Statement"@en;
+        rdfs:subClassOf  :VariableDeclarationStatement .
+
+:hasTarget  rdf:type        owl:InverseFunctionalProperty , owl:FunctionalProperty , owl:ObjectProperty;
+        rdfs:comment        "The hasTarget property relates a method invocation expression to its target."@en;
+        rdfs:domain         :MethodInvocationExpression;
+        rdfs:label          "has target"@en;
+        rdfs:range          :Expression;
+        rdfs:subPropertyOf  :hasSubExpression;
+        owl:inverseOf       :isTargetOf .
+
+:isInitializerOf  rdf:type  owl:InverseFunctionalProperty , owl:FunctionalProperty , owl:ObjectProperty;
+        rdfs:comment        "The isInitializerOf property relates an expression used to initialize a variable, to the statement it is contained in."@en;
+        rdfs:domain         :Expression;
+        rdfs:label          "is initializer of"@en;
+        rdfs:range          :VariableDeclarationStatement;
+        rdfs:subPropertyOf  :isSubExpressionOf .
+
+:hasConstructor  rdf:type   owl:InverseFunctionalProperty , owl:ObjectProperty;
+        rdfs:comment        "The hasConstructor property relates a class to its constructors."@en;
+        rdfs:domain         [ rdf:type     owl:Class;
+                              owl:unionOf  ( :Class :Enum )
+                            ];
+        rdfs:label          "has constructor"@en;
+        rdfs:range          :Constructor;
+        rdfs:subPropertyOf  :declares;
+        owl:inverseOf       :isConstructorOf .
+
+:hasSimpleName  rdf:type    owl:DatatypeProperty;
+        rdfs:comment        "Links a class, enum or interface to its simple name. For instance, the simple name of the class java.lang.String is \"String\""@en;
+        rdfs:domain         :ComplexType;
+        rdfs:label          "has simple name"@en;
+        rdfs:range          xsd:string;
+        rdfs:subPropertyOf  :hasName .
+
+:hasThrownExpression  rdf:type  owl:InverseFunctionalProperty , owl:FunctionalProperty , owl:ObjectProperty;
+        rdfs:comment        "The hasThrownExpression property relates a thrown statement to the expression it throws"@en;
+        rdfs:domain         :ThrowStatement;
+        rdfs:label          "has thrown expression"@en;
+        rdfs:range          :Expression;
+        rdfs:subPropertyOf  :hasSubExpression;
+        owl:inverseOf       :isThrownExpressionOf .
+
+:hasCanonicalName  rdf:type  owl:DatatypeProperty;
+        rdfs:comment        "Links a class, enum or interface to its canonical name. For instance, the class Java.lang.String is linked to the string \"java.lang.string\""@en;
+        rdfs:domain         :ComplexType;
+        rdfs:label          "has canonical name"@en;
+        rdfs:range          xsd:string;
+        rdfs:subPropertyOf  :hasName .
+
+:AssignmentExpression
+        rdf:type         owl:Class;
+        rdfs:comment     "An assignment expression. It involves one of the following operators:\n=, *=, /=, %=, +=, -=, <<=, >>=, >>>=, &=, ^=, |="@en;
+        rdfs:label       "Assignment Expression";
+        rdfs:subClassOf  :Expression;
+        rdfs:subClassOf  [ rdf:type                  owl:Restriction;
+                           owl:onClass               :Expression;
+                           owl:onProperty            :hasSubExpression;
+                           owl:qualifiedCardinality  "1"^^xsd:nonNegativeInteger
+                         ];
+        rdfs:subClassOf  [ rdf:type                  owl:Restriction;
+                           owl:onClass               :Expression;
+                           owl:onProperty            :hasLeftHandSide;
+                           owl:qualifiedCardinality  "1"^^xsd:nonNegativeInteger
+                         ] .
+
+:Class  rdf:type         owl:Class;
+        rdfs:comment     "A class"@en;
+        rdfs:label       "Class"@en;
+        rdfs:subClassOf  :ComplexType;
+        rdfs:subClassOf  [ rdf:type                  owl:Restriction;
+                           owl:onClass               :Class;
+                           owl:onProperty            :extends;
+                           owl:qualifiedCardinality  "1"^^xsd:nonNegativeInteger
+                         ];
+        rdfs:subClassOf  [ rdf:type           owl:Restriction;
+                           owl:allValuesFrom  :Interface;
+                           owl:onProperty     :implements
+                         ];
+        rdfs:subClassOf  [ rdf:type           owl:Restriction;
+                           owl:allValuesFrom  :ClassDeclarationStatement;
+                           owl:onProperty     :hasDeclaration
+                         ];
+        rdfs:subClassOf  [ rdf:type           owl:Restriction;
+                           owl:allValuesFrom  :Class;
+                           owl:onProperty     :extends
+                         ] .
+
+:TryStatement  rdf:type  owl:Class;
+        rdfs:comment     "A try statement"@en;
+        rdfs:label       "Try Statement"@en;
+        rdfs:subClassOf  :Statement;
+        rdfs:subClassOf  [ rdf:type                     owl:Restriction;
+                           owl:maxQualifiedCardinality  "1"^^xsd:nonNegativeInteger;
+                           owl:onClass                  :BlockStatement;
+                           owl:onProperty               :hasBody
+                         ] .
+
+:DecisionMakingStatement
+        rdf:type         owl:Class;
+        rdfs:comment     "A Decision Making Statement, that is a statement that break up the flow of execution by employing decision making. It can either be a if-then-else statement or a switch statement."@en;
+        rdfs:label       "Decision Making Statement"@en;
+        rdfs:subClassOf  :ControlFlowStatement .
+
+[ rdf:type     owl:AllDisjointClasses;
+  owl:members  ( :ActualArgument :AssignmentExpression :ExecutableInvocationExpression )
+] .
+
+:DefaultLabeledBlock  rdf:type  owl:Class;
+        rdfs:comment     "A default-labeled block"@en;
+        rdfs:label       "Default Labeled Block"@en;
+        rdfs:subClassOf  :LabeledBlock .
+
+:isSubExpressionOf  rdf:type  owl:FunctionalProperty , owl:ObjectProperty;
+        rdfs:comment        "The isSubExpressionOf property relates an expression to its parent expression."@en;
+        rdfs:domain         :Expression;
+        rdfs:label          "is subexpression of"@en;
+        rdfs:range          [ rdf:type     owl:Class;
+                              owl:unionOf  ( :Expression :Statement )
+                            ];
+        rdfs:subPropertyOf  xkos:isPartOf .
+
+:ReturnStatement  rdf:type  owl:Class;
+        rdfs:comment     "A return statement"@en;
+        rdfs:label       "Return Statement"@en;
+        rdfs:subClassOf  :BranchingStatement .
+
+:isImplementedBy  rdf:type  owl:ObjectProperty;
+        rdfs:comment        "The isImplementedBy property relates an interface to the classes implementig that interface"@en;
+        rdfs:domain         :Interface;
+        rdfs:label          "is implemented by"@en;
+        rdfs:range          :Class;
+        rdfs:subPropertyOf  xkos:generalizes .
+
+:Public  rdf:type     :AccessModifier , owl:NamedIndividual;
+        rdfs:comment  "The public modifier"@en;
+        rdfs:label    "Public"@en .
+
+:BranchingStatement  rdf:type  owl:Class;
+        rdfs:comment     "A branching statement, namely a break statement, a continue statement or a return statement"@en;
+        rdfs:label       "Branching Statement"@en;
+        rdfs:subClassOf  :ControlFlowStatement .
+
+:Volatile  rdf:type   :Modifier , owl:NamedIndividual;
+        rdfs:comment  "The volatile modifier"@en;
+        rdfs:label    "Volatile"@en .
+
+:hasModifier  rdf:type  owl:ObjectProperty;
+        rdfs:comment   "The hasGenericType property relates a modifiable element to its modifiers"@en;
+        rdfs:domain    :Modifiable;
+        rdfs:label     "has modifier"@en;
+        rdfs:range     :Modifier;
+        owl:inverseOf  :isModifierOf .
+
+[ rdf:type     owl:AllDisjointClasses;
+  owl:members  ( :DoStatement :ForEachStatement :ForStatement :WhileStatement )
+] .
+
+:hasAnnotation  rdf:type  owl:ObjectProperty;
+        rdfs:comment   "The hasAnnotation property relates a code element to its annotations";
+        rdfs:domain    :CodeElement;
+        rdfs:label     "has annotation"@en;
+        rdfs:range     :AnnotationType;
+        owl:inverseOf  :isAnnotationOf .
+
+:isThenBranchOf  rdf:type   owl:InverseFunctionalProperty , owl:FunctionalProperty , owl:ObjectProperty;
+        rdfs:comment        "The isThenBranchOf property relates a statement enclosed in a then branch to the corresponding If-then-else statement"@en;
+        rdfs:domain         :Statement;
+        rdfs:label          "is then branch of"@en;
+        rdfs:range          :IfThenElseStatement;
+        rdfs:subPropertyOf  :isSubStatementOf .
+
+:throws  rdf:type           owl:ObjectProperty;
+        rdfs:comment        "The throws property relates a method or a constructor to the exceptions it declares to throw."@en;
+        rdfs:domain         :Executable;
+        rdfs:label          "throws"@en;
+        rdfs:range          :Class;
+        rdfs:subPropertyOf  :references .
+
+:isParameterOf  rdf:type  owl:InverseFunctionalProperty , owl:ObjectProperty;
+        rdfs:comment  "The isParameterOf property relates a parameter to the corresponding executable."@en;
+        rdfs:domain   :Parameter;
+        rdfs:label    "is parameter of"@en;
+        rdfs:range    :Executable .
+
+:hasType  rdf:type     owl:FunctionalProperty , owl:ObjectProperty;
+        rdfs:comment   "The hasType property relates an expression, a variable or a method to its type."@en;
+        rdfs:domain    [ rdf:type     owl:Class;
+                         owl:unionOf  ( :Expression :Method :Variable )
+                       ];
+        rdfs:label     "has type"@en;
+        rdfs:range     :Type;
+        owl:inverseOf  :isTypeOf .
+
+:Method  rdf:type        owl:Class;
+        rdfs:comment     "A Method"@en;
+        rdfs:label       "Method"@en;
+        rdfs:subClassOf  :Executable .
+
+:isVarArgs  rdf:type  owl:FunctionalProperty , owl:DatatypeProperty;
+        rdfs:comment  "True if an executable accepts a variable number of parameters, false otherwise"@en;
+        rdfs:domain   :Executable;
+        rdfs:label    "is var args"@en;
+        rdfs:range    xsd:boolean .
+
+:isCatchClauseOf  rdf:type  owl:FunctionalProperty , owl:ObjectProperty;
+        rdfs:comment        "The isCatchClauseOf property relates a catch clause to the corresponding try statement."@en;
+        rdfs:domain         :CatchBlock;
+        rdfs:label          "is catch clause of"@en;
+        rdfs:range          :TryStatement;
+        rdfs:subPropertyOf  :isSubStatementOf .
+
+:SwitchStatement  rdf:type  owl:Class;
+        rdfs:comment     "A switch statement"@en;
+        rdfs:label       "Switch Statement"@en;
+        rdfs:subClassOf  :DecisionMakingStatement;
+        rdfs:subClassOf  [ rdf:type                  owl:Restriction;
+                           owl:onClass               :Expression;
+                           owl:onProperty            :hasSubExpression;
+                           owl:qualifiedCardinality  "1"^^xsd:nonNegativeInteger
+                         ] .
+
+[ rdf:type     owl:AllDisjointClasses;
+  owl:members  ( :BranchingStatement :DecisionMakingStatement :LoopStatement )
+] .
+
+:Executable  rdf:type    owl:Class;
+        rdfs:comment     "An executable block of code, namely a Method or a Constructor"@en;
+        rdfs:label       "Executable"@en;
+        rdfs:subClassOf  :Modifiable , :CodeElement;
+        rdfs:subClassOf  [ rdf:type            owl:Restriction;
+                           owl:onProperty      :isVarArgs;
+                           owl:someValuesFrom  xsd:boolean
+                         ] .
+
+:hasBody  rdf:type          owl:InverseFunctionalProperty , owl:FunctionalProperty , owl:ObjectProperty;
+        rdfs:comment        "The hasBody property relates an executable or a statement to its body."@en;
+        rdfs:domain         [ rdf:type     owl:Class;
+                              owl:unionOf  ( :Executable :LoopStatement :TryStatement )
+                            ];
+        rdfs:label          "has body"@en;
+        rdfs:range          :BlockStatement;
+        rdfs:subPropertyOf  :hasSubStatement;
+        owl:inverseOf       :isBodyOf .
+
+:isReturnedExpressionOf
+        rdf:type            owl:InverseFunctionalProperty , owl:FunctionalProperty , owl:ObjectProperty;
+        rdfs:comment        "The isReturnedExpressionOf property relates an expression returned by a method to the return statement it is contained in."@en;
+        rdfs:domain         :Expression;
+        rdfs:label          "is returned expression of"@en;
+        rdfs:range          :ReturnStatement;
+        rdfs:subPropertyOf  :isSubExpressionOf .
+
+:SynchronizedStatement
+        rdf:type         owl:Class;
+        rdfs:comment     "A synchronized statement, that is a statement that acquires a mutual-exclusion lock on behalf of the executiing-thread, executes a block, then release the lock.\nIn java it is of the form:\nsynchronized <Expression> <Block>"@en;
+        rdfs:label       "Synchronized Statement"@en;
+        rdfs:subClassOf  :Statement .
+
+:CodeElement  rdf:type  owl:Class;
+        rdfs:comment  "A generic element in source code"@en;
+        rdfs:label    "Code Element"@en .
+
+:Long   rdf:type      :PrimitiveType , owl:NamedIndividual;
+        rdfs:comment  "The long type"@en;
+        rdfs:label    "Long"@en .
+
+:AssertStatement  rdf:type  owl:Class;
+        rdfs:comment     "An assert statement"@en;
+        rdfs:label       "Assert Statement"@en;
+        rdfs:subClassOf  :Statement;
+        rdfs:subClassOf  [ rdf:type                  owl:Restriction;
+                           owl:onClass               :Expression;
+                           owl:onProperty            :hasAssertExpression;
+                           owl:qualifiedCardinality  "1"^^xsd:nonNegativeInteger
+                         ] .
+
+:hasLine  rdf:type    owl:FunctionalProperty , owl:DatatypeProperty;
+        rdfs:comment  "Links a statement to the line it starts in"@en;
+        rdfs:domain   [ rdf:type     owl:Class;
+                        owl:unionOf  ( :Expression :Statement )
+                      ];
+        rdfs:label    "line"@en;
+        rdfs:range    xsd:int .
+
+:isMethodOf  rdf:type       owl:FunctionalProperty , owl:ObjectProperty;
+        rdfs:comment        "The isMethodOf property relates a method to the class, enum or interface it is declared by."@en;
+        rdfs:domain         :Method;
+        rdfs:label          "is method of"@en;
+        rdfs:range          :ComplexType;
+        rdfs:subPropertyOf  :isDeclaredBy .
+
+:Boolean  rdf:type    :PrimitiveType , owl:NamedIndividual;
+        rdfs:comment  "The boolean type"@en;
+        rdfs:label    "Boolean"@en .
+
+[ rdf:type     owl:AllDisjointClasses;
+  owl:members  ( :BreakStatement :ContinueStatement :ReturnStatement )
+] .
+
+:hasBuildFile  rdf:type  owl:FunctionalProperty , owl:DatatypeProperty;
+        rdfs:comment  "Links a project to the content of its build file.";
+        rdfs:domain   :Project;
+        rdfs:label    "build file";
+        rdfs:range    xsd:string .
+
+:isTargetOf  rdf:type       owl:InverseFunctionalProperty , owl:FunctionalProperty , owl:ObjectProperty;
+        rdfs:comment        "The isTargetOf property relates an expression used as target of a method invocation, to the corresponding method invocation."@en;
+        rdfs:domain         :Expression;
+        rdfs:label          "is target of"@en;
+        rdfs:range          :MethodInvocationExpression;
+        rdfs:subPropertyOf  :isSubExpressionOf .
+
+:CatchBlock  rdf:type    owl:Class;
+        rdfs:comment     "A catch block"@en;
+        rdfs:label       "Catch Block"@en;
+        rdfs:subClassOf  :BlockStatement;
+        rdfs:subClassOf  [ rdf:type            owl:Restriction;
+                           owl:onProperty      :hasCatchFormalParameter;
+                           owl:someValuesFrom  :Class
+                         ] .
+
+:AccessModifier  rdf:type  owl:Class;
+        rdfs:comment     "An access modifier"@en;
+        rdfs:label       "Access Modifier"@en;
+        rdfs:subClassOf  :Modifier .
+
+:hasCondition  rdf:type     owl:InverseFunctionalProperty , owl:FunctionalProperty , owl:ObjectProperty;
+        rdfs:comment        "The hasCondition property specifies a condition for a statement to be executed."@en;
+        rdfs:domain         [ rdf:type     owl:Class;
+                              owl:unionOf  ( :DoStatement :ForStatement :IfThenElseStatement :WhileStatement )
+                            ];
+        rdfs:label          "has condition"@en;
+        rdfs:range          :Expression;
+        rdfs:subPropertyOf  :hasSubExpression;
+        owl:inverseOf       :isConditionOf .
+
+:DoStatement  rdf:type   owl:Class;
+        rdfs:comment     "A do-while statement"@en;
+        rdfs:label       "Do Statement"@en;
+        rdfs:subClassOf  :LoopStatement;
+        rdfs:subClassOf  [ rdf:type                  owl:Restriction;
+                           owl:onClass               :Expression;
+                           owl:onProperty            :hasCondition;
+                           owl:qualifiedCardinality  "1"^^xsd:nonNegativeInteger
+                         ] .
+
+:Byte   rdf:type      :PrimitiveType , owl:NamedIndividual;
+        rdfs:comment  "The byte type"@en;
+        rdfs:label    "Byte"@en .
+
+:Field  rdf:type         owl:Class;
+        rdfs:comment     "A class field"@en;
+        rdfs:label       "Field"@en;
+        rdfs:subClassOf  :Variable , :Modifiable;
+        rdfs:subClassOf  [ rdf:type           owl:Restriction;
+                           owl:allValuesFrom  [ rdf:type     owl:Class;
+                                                owl:unionOf  ( :Class :Enum :Interface )
+                                              ];
+                           owl:onProperty     :isDeclaredBy
+                         ];
+        rdfs:subClassOf  [ rdf:type           owl:Restriction;
+                           owl:allValuesFrom  :FieldDeclarationStatement;
+                           owl:onProperty     :hasDeclaration
+                         ] .
+
+:WhileStatement  rdf:type  owl:Class;
+        rdfs:comment     "A while statement"@en;
+        rdfs:label       "While Statement"@en;
+        rdfs:subClassOf  :LoopStatement;
+        rdfs:subClassOf  [ rdf:type                  owl:Restriction;
+                           owl:onClass               :Expression;
+                           owl:onProperty            :hasCondition;
+                           owl:qualifiedCardinality  "1"^^xsd:nonNegativeInteger
+                         ] .
+
+:isAssertExpressionOf
+        rdf:type            owl:InverseFunctionalProperty , owl:FunctionalProperty , owl:ObjectProperty;
+        rdfs:comment        "The isAssertExpressionOf property relates a boolean expression to the assert statement it is contained in."@en;
+        rdfs:domain         :Expression;
+        rdfs:label          "is subexpression of"@en;
+        rdfs:range          :AssertStatement;
+        rdfs:subPropertyOf  :isSubExpressionOf .
+
+:TypeArgument  rdf:type  owl:Class;
+        rdfs:comment     "This class defines the actual type argument of a parameterized type"@en;
+        rdfs:label       "Type Argument"@en;
+        rdfs:subClassOf  :CodeElement .
+
+:ActualArgument  rdf:type  owl:Class;
+        rdfs:comment     "The actual argument of a method";
+        rdfs:label       "Actual Argument";
+        rdfs:subClassOf  :Expression;
+        rdfs:subClassOf  [ rdf:type                  owl:Restriction;
+                           owl:onDataRange           xsd:int;
+                           owl:onProperty            :hasPosition;
+                           owl:qualifiedCardinality  "1"^^xsd:nonNegativeInteger
+                         ];
+        rdfs:subClassOf  [ rdf:type                  owl:Restriction;
+                           owl:onClass               :Expression;
+                           owl:onProperty            :hasSubExpression;
+                           owl:qualifiedCardinality  "1"^^xsd:nonNegativeInteger
+                         ] .
+
+:ForStatement  rdf:type  owl:Class;
+        rdfs:comment     "A for statement"@en;
+        rdfs:label       "For Statement"@en;
+        rdfs:subClassOf  :LoopStatement;
+        rdfs:subClassOf  [ rdf:type                  owl:Restriction;
+                           owl:onClass               :Expression;
+                           owl:onProperty            :hasCondition;
+                           owl:qualifiedCardinality  "1"^^xsd:nonNegativeInteger
+                         ] .
+
+:hasEndLine  rdf:type  owl:FunctionalProperty , owl:DatatypeProperty;
+        rdfs:comment  "Links a statement to the number of the last line it covers"@en;
+        rdfs:domain   :BlockStatement;
+        rdfs:label    "end line"@en;
+        rdfs:range    xsd:int .
+
+:Variable  rdf:type      owl:Class;
+        rdfs:comment     "A variable"@en;
+        rdfs:label       "Variable"@en;
+        rdfs:subClassOf  :CodeElement;
+        rdfs:subClassOf  [ rdf:type                  owl:Restriction;
+                           owl:onClass               :Type;
+                           owl:onProperty            :hasType;
+                           owl:qualifiedCardinality  "1"^^xsd:nonNegativeInteger
+                         ] .
+
+:Short  rdf:type      :PrimitiveType , owl:NamedIndividual;
+        rdfs:comment  "The short type"@en;
+        rdfs:label    "Short"@en .
+
+:hasSuperBound  rdf:type    owl:ObjectProperty;
+        rdfs:comment        "The hasSuperBound property relates a lower bounded wildcard to its bouds."@en;
+        rdfs:domain         :Wildcard;
+        rdfs:label          "has super bound"@en;
+        rdfs:range          [ rdf:type     owl:Class;
+                              owl:unionOf  ( :Class :Interface :ParameterizedType :TypeVariable )
+                            ];
+        rdfs:subPropertyOf  xkos:generalizes .
+
+:VariableDeclarationStatement
+        rdf:type         owl:Class;
+        rdfs:comment     "A statement that represents the declaration of a variable"@en;
+        rdfs:label       "Variable Declaration"@en;
+        rdfs:subClassOf  :DeclarationStatement .
+
+:Package  rdf:type       owl:Class;
+        rdfs:comment     "A Package"@en;
+        rdfs:label       "Package"@en;
+        rdfs:subClassOf  :CodeElement .
+
+:hasActualTypeArgument
+        rdf:type      owl:ObjectProperty;
+        rdfs:comment  "The hasActualTypeArgument property relates a parameterized type to each of its actual type arguments";
+        rdfs:domain   :ParameterizedType;
+        rdfs:label    "has actual type argument"@en;
+        rdfs:range    :TypeArgument .
+
+[ rdf:type     owl:AllDisjointClasses;
+  owl:members  ( :Class :Enum :Interface )
+] .
+
+:hasLabel  rdf:type         owl:FunctionalProperty , owl:DatatypeProperty;
+        rdfs:comment        "Links a labeled statement to its label"@en;
+        rdfs:domain         :Statement;
+        rdfs:label          "label"@en;
+        rdfs:range          xsd:string;
+        rdfs:subPropertyOf  owl:topDataProperty .
+
+:TypeVariable  rdf:type  owl:Class;
+        rdfs:comment     "A type variable is an unqualified identifier used as a type. It is introduced by the declaration of a generic class, interface, method, or constructor"@en;
+        rdfs:label       "Type Variable";
+        rdfs:subClassOf  :Type;
+        rdfs:subClassOf  [ rdf:type           owl:Restriction;
+                           owl:allValuesFrom  [ rdf:type     owl:Class;
+                                                owl:unionOf  ( :Class :Interface :ParameterizedType )
+                                              ];
+                           owl:onProperty     :extends
+                         ] .
+
+:isThrownBy  rdf:type       owl:ObjectProperty;
+        rdfs:comment        "The isThrownBy property relates an exception to the executables it is thrown by."@en;
+        rdfs:domain         :Class;
+        rdfs:label          "is thrown by"@en;
+        rdfs:range          :Executable;
+        rdfs:subPropertyOf  :isReferencedBy;
+        owl:inverseOf       :throws .
+
+:Double  rdf:type     :PrimitiveType , owl:NamedIndividual;
+        rdfs:comment  "The double type"@en;
+        rdfs:label    "Double"@en .
+
+:hasSubExpression  rdf:type  owl:InverseFunctionalProperty , owl:ObjectProperty;
+        rdfs:comment        "The hasSubExpression property relates a statement or expression to the expressions it contains."@en;
+        rdfs:domain         [ rdf:type     owl:Class;
+                              owl:unionOf  ( :Expression :Statement )
+                            ];
+        rdfs:label          "has subexpression"@en;
+        rdfs:range          :Expression;
+        rdfs:subPropertyOf  xkos:hasPart;
+        owl:inverseOf       :isSubExpressionOf .
+
+:isFinallyClauseOf  rdf:type  owl:InverseFunctionalProperty , owl:FunctionalProperty , owl:ObjectProperty;
+        rdfs:comment        "The isFinallyClauseOf property relates the statement enclosed in a finally clause to the corresponding try statement."@en;
+        rdfs:domain         :FinallyBlock;
+        rdfs:label          "is finally clause of"@en;
+        rdfs:range          :TryStatement;
+        rdfs:subPropertyOf  :isSubStatementOf .
+
+:hasTargetedLabel  rdf:type  owl:FunctionalProperty , owl:DatatypeProperty;
+        rdfs:comment  "Links a break statement or a continue statement to the label it targets, if any"@en;
+        rdfs:domain   [ rdf:type     owl:Class;
+                        owl:unionOf  ( :BreakStatement :ContinueStatement )
+                      ];
+        rdfs:label    "targeted label";
+        rdfs:range    xsd:string .
+
+:hasAssertExpression  rdf:type  owl:InverseFunctionalProperty , owl:FunctionalProperty , owl:ObjectProperty;
+        rdfs:comment        "The hasAssertExpression property relates an assert statement to the boolean expression asserted to be true"@en;
+        rdfs:domain         :AssertStatement;
+        rdfs:label          "has assert expression"@en;
+        rdfs:range          :Expression;
+        rdfs:subPropertyOf  :hasSubExpression;
+        owl:inverseOf       :isAssertExpressionOf .
+
+[ rdf:type             owl:AllDifferent;
+  owl:distinctMembers  ( :Abstract :Boolean :Byte :Char :Default :Double :Final :Float :Int :Long :Private :Protected :Public :Short :Static :Synchronized :Volatile )
+] .
+
+:isReferencedBy  rdf:type  owl:ObjectProperty;
+        rdfs:comment   "The isReferencedBy property relates a code element to the elements it is referenced by."@en;
+        rdfs:domain    :CodeElement;
+        rdfs:label     "is referenced by"@en;
+        rdfs:range     :CodeElement;
+        owl:inverseOf  :references .
+
+:hasMethod  rdf:type        owl:InverseFunctionalProperty , owl:ObjectProperty;
+        rdfs:comment        "The ihasMehtod property relates a class to its methods.";
+        rdfs:domain         :ComplexType;
+        rdfs:label          "has method"@en;
+        rdfs:range          :Method;
+        rdfs:subPropertyOf  :declares;
+        owl:inverseOf       :isMethodOf .
+
+:ComplexType  rdf:type   owl:Class;
+        rdfs:comment     "A class or an enumeration or an interface"@en;
+        rdfs:label       "Complex Type"@en;
+        rdfs:subClassOf  :Type , :Modifiable .
+
+:isAnnotationOf  rdf:type  owl:ObjectProperty;
+        rdfs:comment  "The isAnnotationOf property relates an annotation to the annotated code element."@en;
+        rdfs:domain   :AnnotationType;
+        rdfs:label    "is annotation of"@en;
+        rdfs:range    :CodeElement .
+
+xkos:hasPart  rdf:type  owl:ObjectProperty .
+
+:isConstructorOf  rdf:type  owl:FunctionalProperty , owl:ObjectProperty;
+        rdfs:comment        "The isConstructorOf property relates a constructor to the class it is declared by."@en;
+        rdfs:domain         :Constructor;
+        rdfs:label          "is constructor of"@en;
+        rdfs:range          [ rdf:type     owl:Class;
+                              owl:unionOf  ( :Class :Enum )
+                            ];
+        rdfs:subPropertyOf  :isDeclaredBy .
+
+:AnnotationType  rdf:type  owl:Class;
+        rdfs:comment     "An annotation"@en;
+        rdfs:label       "Annotation"@en;
+        rdfs:subClassOf  :Type .
+
+:hasReturnedExpression
+        rdf:type            owl:InverseFunctionalProperty , owl:FunctionalProperty , owl:ObjectProperty;
+        rdfs:comment        "The hasReturnedExpression property relates a return statement to the returned expression"@en;
+        rdfs:domain         :ReturnStatement;
+        rdfs:label          "has returned expression"@en;
+        rdfs:range          :Expression;
+        rdfs:subPropertyOf  :hasSubExpression;
+        owl:inverseOf       :isReturnedExpressionOf .
+
+:Project  rdf:type    owl:Class;
+        rdfs:comment  "A project"@en;
+        rdfs:label    "Project"@en .
+
+:isElseBranchOf  rdf:type   owl:InverseFunctionalProperty , owl:FunctionalProperty , owl:ObjectProperty;
+        rdfs:comment        "The isElseBranchOf property relates the statement in an else branch to the corresponding If-then-else statement"@en;
+        rdfs:domain         :Statement;
+        rdfs:label          "is else branch of"@en;
+        rdfs:range          :IfThenElseStatement;
+        rdfs:subPropertyOf  :isSubStatementOf .
+
+:hasFinallyClause  rdf:type  owl:InverseFunctionalProperty , owl:FunctionalProperty , owl:ObjectProperty;
+        rdfs:comment        "The hasFinallyClause property relates a try statemet to its finally clause."@en;
+        rdfs:domain         :TryStatement;
+        rdfs:label          "has finally clause"@en;
+        rdfs:range          :FinallyBlock;
+        rdfs:subPropertyOf  :hasSubStatement;
+        owl:inverseOf       :isFinallyClauseOf .
+
+:Abstract  rdf:type   :Modifier , owl:NamedIndividual;
+        rdfs:comment  "The abstract modifier"@en;
+        rdfs:label    "Abstract"@en .
+
+:hasCatchClause  rdf:type   owl:InverseFunctionalProperty , owl:ObjectProperty;
+        rdfs:comment        "The hasCatchClause property relates a try statement to the relative catch clauses."@en;
+        rdfs:domain         :TryStatement;
+        rdfs:label          "has catch clause"@en;
+        rdfs:range          :CatchBlock;
+        rdfs:subPropertyOf  :hasSubStatement;
+        owl:inverseOf       :isCatchClauseOf .
+
+:Synchronized  rdf:type  :Modifier , owl:NamedIndividual;
+        rdfs:comment  "The synchronized modifier"@en;
+        rdfs:label    "Synchronized"@en .
+
+:hasForUpdate  rdf:type     owl:InverseFunctionalProperty , owl:ObjectProperty;
+        rdfs:comment        "The hasForUpdate property relates a basic for statement to each expression evaluated as update code at the end of every iteration"@en;
+        rdfs:domain         :ForStatement;
+        rdfs:label          "has for update"@en;
+        rdfs:range          :Expression;
+        rdfs:subPropertyOf  :hasSubExpression;
+        owl:inverseOf       :isForUpdateOf .
+
+:returns  rdf:type    owl:FunctionalProperty , owl:ObjectProperty;
+        rdfs:comment  "The returns property relates a method to the variable it returns, if any."@en;
+        rdfs:domain   :Method;
+        rdfs:label    "returns"@en;
+        rdfs:range    :Variable .
+
+:hasPosition  rdf:type  owl:FunctionalProperty , owl:DatatypeProperty;
+        rdfs:comment  "Links a element to its position"@en;
+        rdfs:domain   :CodeElement;
+        rdfs:label    "position"@en;
+        rdfs:range    xsd:int .
+
+:ContinueStatement  rdf:type  owl:Class;
+        rdfs:comment     "A continue statement"@en;
+        rdfs:label       "Continue Statement"@en;
+        rdfs:subClassOf  :BranchingStatement .
+
+:Float  rdf:type      :PrimitiveType , owl:NamedIndividual;
+        rdfs:comment  "The float type"@en;
+        rdfs:label    "Float"@en .
+
+:isTypeOf  rdf:type   owl:InverseFunctionalProperty , owl:ObjectProperty;
+        rdfs:comment  "The isTypeOf property relates a type to the elements of that type."@en;
+        rdfs:domain   :Type;
+        rdfs:label    "is type of"@en;
+        rdfs:range    [ rdf:type     owl:Class;
+                        owl:unionOf  ( :Expression :Method :Variable )
+                      ] .
+
+:Char   rdf:type      :PrimitiveType , owl:NamedIndividual;
+        rdfs:comment  "The char type"@en;
+        rdfs:label    "Char"@en .
+
+:isSwitchLabelOf  rdf:type  owl:FunctionalProperty , owl:ObjectProperty;
+        rdfs:comment        "The isSwitchLabelOf property relates a case labeled block or a default block to the corresponding switch statement."@en;
+        rdfs:domain         :LabeledBlock;
+        rdfs:label          "is switch label of"@en;
+        rdfs:range          :SwitchStatement;
+        rdfs:subPropertyOf  :isSubStatementOf .
+
+[ rdf:type     owl:AllDisjointClasses;
+  owl:members  ( :CatchBlock :FinallyBlock :LabeledBlock )
+] .
+
+:Static  rdf:type     :Modifier , owl:NamedIndividual;
+        rdfs:comment  "The static modifier"@en;
+        rdfs:label    "Static"@en .
+
+:hasGenericType  rdf:type  owl:FunctionalProperty , owl:ObjectProperty;
+        rdfs:comment  "The hasGenericType property relates a parameterized type to the generic type it is a parameterization of"@en;
+        rdfs:domain   :ParameterizedType;
+        rdfs:label    "has generic type"@en;
+        rdfs:range    [ rdf:type     owl:Class;
+                        owl:unionOf  ( :Class :Interface :TypeVariable :Wildcard )
+                      ] .
+
+:hasDependency  rdf:type  owl:ObjectProperty;
+        rdfs:comment   "The hasDependency property relates a project to its dependencies."@en;
+        rdfs:domain    :Project;
+        rdfs:label     "has dependency"@en;
+        rdfs:range     :Library;
+        owl:inverseOf  :isDependencyOf .
+
+:hasElseBranch  rdf:type    owl:InverseFunctionalProperty , owl:FunctionalProperty , owl:ObjectProperty;
+        rdfs:comment        "The hasElseBranch property relates a if-then-else statement to the statement in the else branch."@en;
+        rdfs:domain         :IfThenElseStatement;
+        rdfs:label          "has else branch"@en;
+        rdfs:range          :Statement;
+        rdfs:subPropertyOf  :hasSubStatement;
+        owl:inverseOf       :isElseBranchOf .
+
+:hasSubProject  rdf:type    owl:InverseFunctionalProperty , owl:ObjectProperty;
+        rdfs:comment        "The hasSubProject property relates a project to its subprojects"@en;
+        rdfs:domain         :Project;
+        rdfs:label          "has subproject"@en;
+        rdfs:range          :Project;
+        rdfs:subPropertyOf  xkos:hasPart;
+        owl:inverseOf       :isSubProjectOf .
+
+:isProjectOf  rdf:type      owl:InverseFunctionalProperty , owl:ObjectProperty;
+        rdfs:comment        "The isProjectOf property relates a project to the packages it contains."@en;
+        rdfs:domain         :Project;
+        rdfs:label          "is project of"@en;
+        rdfs:range          :Package;
+        rdfs:subPropertyOf  xkos:hasPart .
+
+:hasProject  rdf:type       owl:FunctionalProperty , owl:ObjectProperty;
+        rdfs:comment        "The hasProject property relates a package to the project it belongs to.";
+        rdfs:domain         :Package;
+        rdfs:label          "has project"@en;
+        rdfs:range          :Project;
+        rdfs:subPropertyOf  xkos:isPartOf;
+        owl:inverseOf       :isProjectOf .
+
+:Modifier  rdf:type      owl:Class;
+        rdfs:comment     "A modifier"@en;
+        rdfs:label       "Modifier"@en;
+        rdfs:subClassOf  :CodeElement .
+
+:Statement  rdf:type     owl:Class;
+        rdfs:comment     "A generic statement";
+        rdfs:label       "Statement";
+        rdfs:subClassOf  :CodeElement;
+        rdfs:subClassOf  [ rdf:type                  owl:Restriction;
+                           owl:onDataRange           xsd:int;
+                           owl:onProperty            :hasPosition;
+                           owl:qualifiedCardinality  "1"^^xsd:nonNegativeInteger
+                         ];
+        rdfs:subClassOf  [ rdf:type                  owl:Restriction;
+                           owl:onDataRange           xsd:int;
+                           owl:onProperty            :hasLine;
+                           owl:qualifiedCardinality  "1"^^xsd:nonNegativeInteger
+                         ] .
+
+:hasField  rdf:type         owl:InverseFunctionalProperty , owl:ObjectProperty;
+        rdfs:comment        "The hasField property relates a class to its fields"@en;
+        rdfs:domain         :ComplexType;
+        rdfs:label          "has field"@en;
+        rdfs:range          :Field;
+        rdfs:subPropertyOf  :declares;
+        owl:inverseOf       :isFieldOf .
+
+:isDependencyOf  rdf:type  owl:ObjectProperty;
+        rdfs:comment  "The isDependencyOf property relates a library to the projects that depend on this library."@en;
+        rdfs:domain   :Library;
+        rdfs:label    "is dependency of"@en;
+        rdfs:range    :Project .
+
+:Modifiable  rdf:type    owl:Class;
+        rdfs:comment     "An element that can have a modifier"@en;
+        rdfs:label       "Modifiable"@en;
+        rdfs:subClassOf  :CodeElement;
+        rdfs:subClassOf  [ rdf:type                  owl:Restriction;
+                           owl:onClass               :AccessModifier;
+                           owl:onProperty            :hasModifier;
+                           owl:qualifiedCardinality  "1"^^xsd:nonNegativeInteger
+                         ];
+        rdfs:subClassOf  [ rdf:type            owl:Restriction;
+                           owl:onProperty      :hasModifier;
+                           owl:someValuesFrom  :Modifier
+                         ] .
+
+:isFieldOf  rdf:type        owl:FunctionalProperty , owl:ObjectProperty;
+        rdfs:comment        "The isFieldOf property relates a field to the class, interface or enum it is declared by."@en;
+        rdfs:domain         :Field;
+        rdfs:label          "is field of"@en;
+        rdfs:range          :ComplexType;
+        rdfs:subPropertyOf  :isDeclaredBy .
+
+:overrides  rdf:type        owl:FunctionalProperty , owl:ObjectProperty;
+        rdfs:comment        "The overrides property relates a method to the method it overrides."@en;
+        rdfs:domain         :Method;
+        rdfs:label          "overrides"@en;
+        rdfs:range          :Method;
+        rdfs:subPropertyOf  xkos:specializes .
+
+:isOverriddenBy  rdf:type   owl:InverseFunctionalProperty , owl:ObjectProperty;
+        rdfs:comment        "The isOverridenBy property relates a method to the ones it is overridden by."@en;
+        rdfs:domain         :Method;
+        rdfs:label          "is overridden by"@en;
+        rdfs:range          :Method;
+        rdfs:subPropertyOf  xkos:generalizes;
+        owl:inverseOf       :overrides .
+
+:FieldDeclarationStatement
+        rdf:type          owl:Class;
+        rdfs:comment      "The declaration of a field"@en;
+        rdfs:label        "Field Declaration"@en;
+        rdfs:subClassOf   :VariableDeclarationStatement;
+        owl:disjointWith  :LocalVariableDeclarationStatement .
+
+[ rdf:type     owl:AllDisjointClasses;
+  owl:members  ( :AssertStatement :BlockStatement :ControlFlowStatement :DeclarationStatement :ExpressionStatement :SynchronizedStatement :ThrowStatement :TryStatement )
+] .
+
+[ rdf:type     owl:AllDisjointClasses;
+  owl:members  ( :Field :LocalVariable :Parameter )
+] .
+
+:MavenProject  rdf:type  owl:Class;
+        rdfs:comment     "A maven project"@en;
+        rdfs:label       "Maven Project"@en;
+        rdfs:subClassOf  :Project .
+
+:BlockStatement  rdf:type  owl:Class;
+        rdfs:comment     "A block"@en;
+        rdfs:label       "Block Statement"@en;
+        rdfs:subClassOf  :Statement .
+
+:ForEachStatement  rdf:type  owl:Class;
+        rdfs:comment     "A for-each statement, also known as enhanced for statement"@en;
+        rdfs:label       "ForEach Statement"@en;
+        rdfs:subClassOf  :LoopStatement;
+        rdfs:subClassOf  [ rdf:type                  owl:Restriction;
+                           owl:onClass               :Variable;
+                           owl:onProperty            :hasVariable;
+                           owl:qualifiedCardinality  "1"^^xsd:nonNegativeInteger
+                         ];
+        rdfs:subClassOf  [ rdf:type                  owl:Restriction;
+                           owl:onClass               :Expression;
+                           owl:onProperty            :hasSubExpression;
+                           owl:qualifiedCardinality  "1"^^xsd:nonNegativeInteger
+                         ] .
+
+:isSubProjectOf  rdf:type   owl:FunctionalProperty , owl:ObjectProperty;
+        rdfs:comment        "The isSubProjectOf property relates a project to its parent project."@en;
+        rdfs:domain         :Project;
+        rdfs:label          "is subproject of"@en;
+        rdfs:range          :Project;
+        rdfs:subPropertyOf  xkos:isPartOf .
+
+:Expression  rdf:type    owl:Class;
+        rdfs:comment     "A generic expression";
+        rdfs:label       "Expression";
+        rdfs:subClassOf  :CodeElement;
+        rdfs:subClassOf  [ rdf:type                  owl:Restriction;
+                           owl:onDataRange           xsd:int;
+                           owl:onProperty            :hasLine;
+                           owl:qualifiedCardinality  "1"^^xsd:nonNegativeInteger
+                         ];
+        rdfs:subClassOf  [ rdf:type                  owl:Restriction;
+                           owl:onClass               :Type;
+                           owl:onProperty            :hasType;
+                           owl:qualifiedCardinality  "1"^^xsd:nonNegativeInteger
+                         ] .
+
+:ClassInstanceCreationExpression
+        rdf:type          owl:Class;
+        rdfs:comment      "An expression that creates a class instance, in other words a constructor call"@en;
+        rdfs:label        "Class Instance Creation Expression"@en;
+        rdfs:subClassOf   :ExecutableInvocationExpression;
+        owl:disjointWith  :MethodInvocationExpression .
+
+:hasPreviousStatement
+        rdf:type            owl:InverseFunctionalProperty , owl:FunctionalProperty , owl:ObjectProperty;
+        rdfs:comment        "The hasPreviousStatement property relates a statement to the previous one."@en;
+        rdfs:domain         :Statement;
+        rdfs:label          "has previous statement"@en;
+        rdfs:range          :Statement;
+        rdfs:subPropertyOf  xkos:previous .
+
+:hasForInit  rdf:type       owl:InverseFunctionalProperty , owl:ObjectProperty;
+        rdfs:comment        "The hasForInit property relates a basic for statement to each statement expression executed as initialization code, before the first iteration step is performed"@en;
+        rdfs:domain         :ForStatement;
+        rdfs:label          "has for init"@en;
+        rdfs:range          :Expression;
+        rdfs:subPropertyOf  :hasSubExpression;
+        owl:inverseOf       :isForInitOf .
+
+:ArrayType  rdf:type     owl:Class;
+        rdfs:comment     "An array type"@en;
+        rdfs:label       "Array"@en;
+        rdfs:subClassOf  :Type;
+        rdfs:subClassOf  [ rdf:type                  owl:Restriction;
+                           owl:onDataRange           xsd:int;
+                           owl:onProperty            :hasDimensions;
+                           owl:qualifiedCardinality  "1"^^xsd:nonNegativeInteger
+                         ];
+        rdfs:subClassOf  [ rdf:type                  owl:Restriction;
+                           owl:onClass               :Type;
+                           owl:onProperty            :isArrayOf;
+                           owl:qualifiedCardinality  "1"^^xsd:nonNegativeInteger
+                         ] .
+
+:isForInitOf  rdf:type      owl:FunctionalProperty , owl:ObjectProperty;
+        rdfs:comment        "The isForInitOf property relates an expression executed as initialization code of a basic for statement to the relative for statement."@en;
+        rdfs:domain         :Expression;
+        rdfs:label          "is for init of"@en;
+        rdfs:range          :ForStatement;
+        rdfs:subPropertyOf  :isSubExpressionOf .
+
+:constructs  rdf:type       owl:ObjectProperty;
+        rdfs:comment        "The constructs property relates an executable to the classes it constructs."@en;
+        rdfs:domain         :Executable;
+        rdfs:label          "constructs"@en;
+        rdfs:range          :Class;
+        rdfs:subPropertyOf  :references;
+        owl:inverseOf       :isConstructedBy .
+
+:implements  rdf:type       owl:ObjectProperty;
+        rdfs:comment        "The implements property relates a class to each implemented interface."@en;
+        rdfs:domain         :Class;
+        rdfs:label          "implements"@en;
+        rdfs:range          :Interface;
+        rdfs:subPropertyOf  xkos:specializes;
+        owl:inverseOf       :isImplementedBy .
+
+:isConditionOf  rdf:type    owl:InverseFunctionalProperty , owl:FunctionalProperty , owl:ObjectProperty;
+        rdfs:comment        "The isConditionOf property relates a if-then-else statement or a loop to its condition."@en;
+        rdfs:domain         :Expression;
+        rdfs:label          "is condition of"@en;
+        rdfs:range          [ rdf:type     owl:Class;
+                              owl:unionOf  ( :DoStatement :ForStatement :IfThenElseStatement :WhileStatement )
+                            ];
+        rdfs:subPropertyOf  :isSubExpressionOf .
+
+:isSubStatementOf  rdf:type  owl:ObjectProperty;
+        rdfs:comment        "The isSubStatementOf property relates a statement to the method, constructor or statement it is contained in.";
+        rdfs:domain         :Statement;
+        rdfs:label          "is substatement of"@en;
+        rdfs:range          [ rdf:type     owl:Class;
+                              owl:unionOf  ( :Executable :Statement )
+                            ];
+        rdfs:subPropertyOf  xkos:isPartOf .
+
+xkos:previous  rdf:type  owl:ObjectProperty .
+
+:isArrayOf  rdf:type  owl:ObjectProperty;
+        rdfs:comment  "The isArrayOf property relates an arrray to the type of its elements at the finest grain. For instance, an array of type \"int[][][]\" is linked to the type \"int\". The number of dimensions of the array is specified by the dimensions property."@en;
+        rdfs:domain   :ArrayType;
+        rdfs:label    "is array of"@en;
+        rdfs:range    :Type .
+
+:       rdf:type      owl:Ontology;
+        rdfs:comment  "An ontology that represents object-oriented programming languages"@en;
+        rdfs:label    "CodeOntology"@en .
+
+:isDeclaredBy  rdf:type     owl:FunctionalProperty , owl:ObjectProperty;
+        rdfs:comment        "The isDeclaredBy property relates a code element to the element it is declared by."@en;
+        rdfs:domain         :CodeElement;
+        rdfs:label          "is declared by"@en;
+        rdfs:range          :CodeElement;
+        rdfs:subPropertyOf  xkos:isPartOf .
+
+:hasPackage  rdf:type       owl:FunctionalProperty , owl:ObjectProperty;
+        rdfs:comment        "The hasPackage property relates a class, interface, enum or annotation to the package it is declared by."@en;
+        rdfs:domain         [ rdf:type     owl:Class;
+                              owl:unionOf  ( :AnnotationType :ComplexType )
+                            ];
+        rdfs:label          "has package"@en;
+        rdfs:range          :Package;
+        rdfs:subPropertyOf  :isDeclaredBy;
+        owl:inverseOf       :isPackageOf .
+
+:Parameter  rdf:type     owl:Class;
+        rdfs:comment     "A formal parameter"@en;
+        rdfs:label       "Parameter"@en;
+        rdfs:subClassOf  :Variable;
+        rdfs:subClassOf  [ rdf:type                  owl:Restriction;
+                           owl:onDataRange           xsd:int;
+                           owl:onProperty            :hasPosition;
+                           owl:qualifiedCardinality  "1"^^xsd:nonNegativeInteger
+                         ] .
+
+:Private  rdf:type    :AccessModifier , owl:NamedIndividual;
+        rdfs:comment  "The private modifier"@en;
+        rdfs:label    "Private"@en .
+
+:Wildcard  rdf:type      owl:Class;
+        rdfs:comment     "A wildcard"@en;
+        rdfs:label       "Wildcard"@en;
+        rdfs:subClassOf  :Type;
+        rdfs:subClassOf  [ rdf:type           owl:Restriction;
+                           owl:allValuesFrom  :Type;
+                           owl:onProperty     :hasSuperBound
+                         ];
+        rdfs:subClassOf  [ rdf:type           owl:Restriction;
+                           owl:allValuesFrom  [ rdf:type     owl:Class;
+                                                owl:unionOf  ( :Class :Interface :ParameterizedType )
+                                              ];
+                           owl:onProperty     :extends
+                         ] .
+
+:LocalVariable  rdf:type  owl:Class;
+        rdfs:comment     "A local variable"@en;
+        rdfs:label       "Local Variable"@en;
+        rdfs:subClassOf  :Variable;
+        rdfs:subClassOf  [ rdf:type           owl:Restriction;
+                           owl:allValuesFrom  :Executable;
+                           owl:onProperty     :isDeclaredBy
+                         ] .
+
+:hasSwitchLabel  rdf:type   owl:InverseFunctionalProperty , owl:ObjectProperty;
+        rdfs:comment        "The hasSwitchLabel property relates a switch statement to its cases."@en;
+        rdfs:domain         :SwitchStatement;
+        rdfs:label          "has switch label"@en;
+        rdfs:range          :LabeledBlock;
+        rdfs:subPropertyOf  :hasSubStatement;
+        owl:inverseOf       :isSwitchLabelOf .
+
+:hasSourceCode  rdf:type  owl:FunctionalProperty , owl:DatatypeProperty;
+        rdfs:comment  "Links a element to its source code"@en;
+        rdfs:domain   :CodeElement;
+        rdfs:label    "source code"@en;
+        rdfs:range    xsd:string .
+
+:FinallyBlock  rdf:type  owl:Class;
+        rdfs:comment     "A finally block"@en;
+        rdfs:label       "Finally Block"@en;
+        rdfs:subClassOf  :BlockStatement .
+
+:isConstructedBy  rdf:type  owl:ObjectProperty;
+        rdfs:comment        "The isConstructedBy property relates a class to the executables that instantiates objects of that class."@en;
+        rdfs:domain         :Class;
+        rdfs:label          "is constructed by"@en;
+        rdfs:range          :Executable;
+        rdfs:subPropertyOf  :isReferencedBy .
+
+:CaseLabeledBlock  rdf:type  owl:Class;
+        rdfs:comment     "A case-labeled list of statements"@en;
+        rdfs:label       "Case Labeled Block"@en;
+        rdfs:subClassOf  :LabeledBlock;
+        rdfs:subClassOf  [ rdf:type                  owl:Restriction;
+                           owl:onClass               :Expression;
+                           owl:onProperty            :hasSubExpression;
+                           owl:qualifiedCardinality  "1"^^xsd:nonNegativeInteger
+                         ] .
+
+:Constructor  rdf:type    owl:Class;
+        rdfs:comment      "A constructor of a Class"@en;
+        rdfs:label        "Constructor"@en;
+        rdfs:subClassOf   :Executable;
+        owl:disjointWith  :Method .
+
+:LoopStatement  rdf:type  owl:Class;
+        rdfs:comment     "A loop statement."@en;
+        rdfs:label       "Loop Statement"@en;
+        rdfs:subClassOf  :ControlFlowStatement;
+        rdfs:subClassOf  [ rdf:type                     owl:Restriction;
+                           owl:maxQualifiedCardinality  "1"^^xsd:nonNegativeInteger;
+                           owl:onClass                  :BlockStatement;
+                           owl:onProperty               :hasBody
+                         ] .
+
+:GradleProject  rdf:type  owl:Class;
+        rdfs:comment     "A gradle project"@en;
+        rdfs:label       "Gradle Project"@en;
+        rdfs:subClassOf  :Project .
+
+:hasArgument  rdf:type  owl:ObjectProperty;
+        rdfs:comment  "The hasArgument property relates an executable invocation to each of its actual arguments."@en;
+        rdfs:domain   :ExecutableInvocationExpression;
+        rdfs:label    "has argument"@en;
+        rdfs:range    :ActualArgument .
+
+:ClassDeclarationStatement
+        rdf:type          owl:Class;
+        rdfs:comment      "A statement that corresponds to the declaration of a local class"@en;
+        rdfs:label        "Class Declaration Statement"@en;
+        rdfs:subClassOf   :DeclarationStatement;
+        owl:disjointWith  :VariableDeclarationStatement .
+
+[ rdf:type     owl:AllDisjointClasses;
+  owl:members  ( :AnnotationType :ArrayType :ComplexType :ParameterizedType :PrimitiveType :TypeVariable :Wildcard )
+] .
+
+xkos:next  rdf:type  owl:ObjectProperty .
+
+:Interface  rdf:type     owl:Class;
+        rdfs:comment     "An interface"@en;
+        rdfs:label       "Interface"@en;
+        rdfs:subClassOf  :ComplexType;
+        rdfs:subClassOf  [ rdf:type           owl:Restriction;
+                           owl:allValuesFrom  :Interface;
+                           owl:onProperty     :extends
+                         ] .
+
+[ rdf:type     owl:AllDisjointClasses;
+  owl:members  ( :Executable :Expression :Modifier :Package :Statement :Type :TypeArgument :Variable )
+] .
+
+:IfThenElseStatement  rdf:type  owl:Class;
+        rdfs:comment      "A If-then-else statement"@en;
+        rdfs:label        "If-then-else statement"@en;
+        rdfs:subClassOf   :DecisionMakingStatement;
+        rdfs:subClassOf   [ rdf:type                  owl:Restriction;
+                            owl:onClass               :Statement;
+                            owl:onProperty            :hasThenBranch;
+                            owl:qualifiedCardinality  "1"^^xsd:nonNegativeInteger
+                          ];
+        rdfs:subClassOf   [ rdf:type                  owl:Restriction;
+                            owl:onClass               :Expression;
+                            owl:onProperty            :hasCondition;
+                            owl:qualifiedCardinality  "1"^^xsd:nonNegativeInteger
+                          ];
+        owl:disjointWith  :SwitchStatement .
+
+:MethodInvocationExpression
+        rdf:type         owl:Class;
+        rdfs:comment     "A method call"@en;
+        rdfs:label       "Method Invocation Expression"@en;
+        rdfs:subClassOf  :ExecutableInvocationExpression .
+
+:ParameterizedType  rdf:type  owl:Class;
+        rdfs:comment     "A parameterized type is a particular parameterization of a generic type denoted by a specified list of type arguments"@en;
+        rdfs:label       "Parameterized Type";
+        rdfs:subClassOf  :Type;
+        rdfs:subClassOf  [ rdf:type                  owl:Restriction;
+                           owl:onClass               :ComplexType;
+                           owl:onProperty            :hasGenericType;
+                           owl:qualifiedCardinality  "1"^^xsd:nonNegativeInteger
+                         ];
+        rdfs:subClassOf  [ rdf:type            owl:Restriction;
+                           owl:onProperty      :hasActualTypeArgument;
+                           owl:someValuesFrom  :TypeArgument
+                         ] .
+
+:declares  rdf:type         owl:InverseFunctionalProperty , owl:ObjectProperty;
+        rdfs:comment        "The declares property relates a code element to the elements it declares. For instance, a class is linked to its fields, methods and constructors.";
+        rdfs:domain         :CodeElement;
+        rdfs:label          "declares"@en;
+        rdfs:range          :CodeElement;
+        rdfs:subPropertyOf  xkos:hasPart;
+        owl:inverseOf       :isDeclaredBy .
+
+xkos:isPartOf  rdf:type  owl:ObjectProperty .
+
+:ControlFlowStatement
+        rdf:type         owl:Class;
+        rdfs:comment     "A control flow statement, that is a statement that regulates the order in which statements are executed.\nControl Flow Statements break up the flow of execution by employing decision making, looping, or branching."@en;
+        rdfs:label       "Control Flow Statement"@en;
+        rdfs:subClassOf  :Statement .
+
+:hasFormalTypeParameter
+        rdf:type      owl:ObjectProperty;
+        rdfs:comment  "The hasFormalTypeParameter property relates a class, an interface, an enumeration, a constructor or a method to the formal type parameters it declares"@en;
+        rdfs:domain   [ rdf:type     owl:Class;
+                        owl:unionOf  ( :Class :Enum :Executable :Interface )
+                      ];
+        rdfs:label    "has formal type parameter"@en;
+        rdfs:range    :TypeVariable .
+
+:hasSubStatement  rdf:type  owl:InverseFunctionalProperty , owl:ObjectProperty;
+        rdfs:comment        "The hasSubStatement property relates a statment to its sub-statements."@en;
+        rdfs:domain         [ rdf:type     owl:Class;
+                              owl:unionOf  ( :Executable :Statement )
+                            ];
+        rdfs:label          "has substatement"@en;
+        rdfs:range          :Statement;
+        rdfs:subPropertyOf  xkos:hasPart;
+        owl:inverseOf       :isSubStatementOf .
+
+:isReturnTypeOf  rdf:type   owl:InverseFunctionalProperty , owl:ObjectProperty;
+        rdfs:comment        "The isReturnTypeOf property relates a type to the methods that return objects of that type."@en;
+        rdfs:domain         :Type;
+        rdfs:label          "is return type of"@en;
+        rdfs:range          :Method;
+        rdfs:subPropertyOf  :isTypeOf .
+
+:hasName  rdf:type    owl:FunctionalProperty , owl:DatatypeProperty;
+        rdfs:comment  "Links a element to its name"@en;
+        rdfs:domain   [ rdf:type     owl:Class;
+                        owl:unionOf  ( :CodeElement :Library :Project )
+                      ];
+        rdfs:label    "name"@en;
+        rdfs:range    xsd:string .
+
+:AnonymousClass  rdf:type  owl:Class;
+        rdfs:comment     "An anonymous class"@en;
+        rdfs:label       "Anonymous Class"@en;
+        rdfs:subClassOf  :Class .
+
+:Int    rdf:type      :PrimitiveType , owl:NamedIndividual;
+        rdfs:comment  "The int type"@en;
+        rdfs:label    "Int"@en .
+
+:hasDeclaration  rdf:type   owl:FunctionalProperty , owl:ObjectProperty;
+        rdfs:comment        "The hasDeclaration property relates a variable to the statement it was declared by."@en;
+        rdfs:domain         :Variable;
+        rdfs:label          "has declaration"@en;
+        rdfs:range          :VariableDeclarationStatement;
+        rdfs:subPropertyOf  owl:topObjectProperty .
+
+:ThrowStatement  rdf:type  owl:Class;
+        rdfs:comment     "A throw statement, that is a statement that causes an exception to be thrown"@en;
+        rdfs:label       "Throw Statement"@en;
+        rdfs:subClassOf  :Statement;
+        rdfs:subClassOf  [ rdf:type                  owl:Restriction;
+                           owl:onClass               :Expression;
+                           owl:onProperty            :hasThrownExpression;
+                           owl:qualifiedCardinality  "1"^^xsd:nonNegativeInteger
+                         ] .
+
+:DeclarationStatement
+        rdf:type         owl:Class;
+        rdfs:comment     "A statement that holds a declaration"@en;
+        rdfs:label       "Declaration statement"@en;
+        rdfs:subClassOf  :Statement .
+
+:hasVariable  rdf:type  owl:InverseFunctionalProperty , owl:FunctionalProperty , owl:ObjectProperty;
+        rdfs:comment  "The hasVariable property relates a for-each statement to the local variable it declares."@en;
+        rdfs:domain   :ForEachStatement;
+        rdfs:label    "has variable"@en;
+        rdfs:range    :LocalVariable .
+
+:extends  rdf:type          owl:FunctionalProperty , owl:ObjectProperty;
+        rdfs:comment        "The extends property relates a class, an interface, a type variable or a wildacard to the types it extends."@en;
+        rdfs:domain         [ rdf:type     owl:Class;
+                              owl:unionOf  ( :Class :Interface :TypeVariable :Wildcard )
+                            ];
+        rdfs:label          "extends"@en;
+        rdfs:subPropertyOf  xkos:specializes;
+        owl:inverseOf       :hasSubClass .
+
+:isForUpdateOf  rdf:type    owl:FunctionalProperty , owl:ObjectProperty;
+        rdfs:comment        "The isForUpdateOf property relates an expression evaluated as update code of a for statement at the end of every iteration, to the corresponding for statement."@en;
+        rdfs:domain         :Expression;
+        rdfs:label          "is for update of"@en;
+        rdfs:range          :ForStatement;
+        rdfs:subPropertyOf  :isSubExpressionOf .
+
+:hasSubClass  rdf:type      owl:InverseFunctionalProperty , owl:ObjectProperty;
+        rdfs:comment        "The hasSubClass property relates a class to its direct sub-classes"@en;
+        rdfs:domain         [ rdf:type     owl:Class;
+                              owl:unionOf  ( :Class :Interface :TypeVariable :Wildcard )
+                            ];
+        rdfs:label          "has subclass"@en;
+        rdfs:range          [ rdf:type     owl:Class;
+                              owl:unionOf  ( :AnnotationType :ComplexType )
+                            ];
+        rdfs:subPropertyOf  xkos:generalizes .
+
+:references  rdf:type  owl:ObjectProperty;
+        rdfs:comment  "The references property relates a method or a constructor to the types, methods, constructors and fields it references."@en;
+        rdfs:domain   :CodeElement;
+        rdfs:label    "references"@en;
+        rdfs:range    :CodeElement .
+
+:Protected  rdf:type  :AccessModifier , owl:NamedIndividual;
+        rdfs:comment  "The protected modifier"@en;
+        rdfs:label    "Protected"@en .
+
+:hasParameter  rdf:type  owl:InverseFunctionalProperty , owl:ObjectProperty;
+        rdfs:comment   "The hasParameter property relates a constructor or a method to the formal parameters it declares"@en;
+        rdfs:domain    :Executable;
+        rdfs:label     "has parameter"@en;
+        rdfs:range     :Parameter;
+        owl:inverseOf  :isParameterOf .
+
+:hasReturnType  rdf:type    owl:FunctionalProperty , owl:ObjectProperty;
+        rdfs:comment        "The hasReturnType property relates a method to its return type."@en;
+        rdfs:domain         :Method;
+        rdfs:label          "has return type"@en;
+        rdfs:range          :Type;
+        rdfs:subPropertyOf  :hasType;
+        owl:inverseOf       :isReturnTypeOf .
+
+:hasDimensions  rdf:type  owl:FunctionalProperty , owl:DatatypeProperty;
+        rdfs:comment  "Links an array to the number of its dimensions. As an example, an array of type \"int[][][]\" has a dimensions count of 3"@en;
+        rdfs:domain   :ArrayType;
+        rdfs:label    "dimensions"@en;
+        rdfs:range    xsd:int .
+
+:PrimitiveType  rdf:type  owl:Class;
+        rdfs:comment     "A primitive type";
+        rdfs:label       "Primitive Type";
+        rdfs:subClassOf  :Type .
+
+:ExecutableInvocationExpression
+        rdf:type         owl:Class;
+        rdfs:comment     "An invocation of either a method or a constructor."@en;
+        rdfs:label       "Executable invocation expression"@en;
+        rdfs:subClassOf  :Expression;
+        rdfs:subClassOf  [ rdf:type                  owl:Restriction;
+                           owl:onClass               :Executable;
+                           owl:onProperty            :invokes;
+                           owl:qualifiedCardinality  "1"^^xsd:nonNegativeInteger
+                         ] .
