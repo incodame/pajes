@@ -10,6 +10,7 @@ import org.apache.jena.rdf.model.ModelFactory;
 import org.apache.jena.rdf.model.Resource;
 import org.apache.jena.riot.RDFDataMgr;
 import org.apache.jena.vocabulary.OWL;
+import org.apache.jena.vocabulary.RDFS;
 import org.junit.jupiter.api.Test;
 
 class PajesOntologyTest {
@@ -23,14 +24,39 @@ class PajesOntologyTest {
 
         assertDeclarations(ontology, OWL.Class, List.of(
                 "JavaModule", "JavaSubModule", "JavaLibrary", "LibraryDependency",
-                "ApiClientConstraint", "ApiClientConstraintSet", "JavaConstraintAnnotation", "CoAProperty"));
+                "ApiClientConstraint", "ApiClientConstraintSet", "JavaConstraintAnnotation", "CoProperty",
+                "CoAProperty", "ApiContract", "ApiConditionSet", "ApiCondition", "ApiCoProperty",
+                "JavaContractAnnotation"));
         assertDeclarations(ontology, OWL.ObjectProperty, List.of(
                 "hasSubModule", "hasDependency", "targetPackage", "isNewConstructor",
                 "isPatchOfConstructor", "isNewMethod", "isPatchOfMethod", "isDeleted",
                 "onMethodCall", "onMethodReturn", "onCallback", "onCallbackReturn", "onTypeUse",
-                "hasContraints", "annotations", "annotationProperties"));
+                "hasContraints", "annotations", "annotationProperties", "methodCallContract",
+                "methodReturnContract", "callbackContract", "callbackReturnContract", "typeUseContract",
+                "includesCondition", "conditionProperties"));
         assertDeclarations(ontology, OWL.DatatypeProperty, List.of(
                 "applBranch", "applFor", "targetVersion", "methodJavadoc", "paramJavadoc"));
+
+        Resource conditionSet = ontology.getResource(ICODM + "ApiConditionSet");
+        assertTrue(conditionSet.hasProperty(RDFS.subClassOf, ontology.getResource(ICODM + "ApiContract")));
+        assertTrue(ontology.getResource(ICODM + "ApiCoProperty")
+                .hasProperty(RDFS.subClassOf, ontology.getResource(ICODM + "CoProperty")));
+        assertTrue(ontology.getResource(ICODM + "CoAProperty")
+                .hasProperty(RDFS.subClassOf, ontology.getResource(ICODM + "CoProperty")));
+        assertContractProperty(ontology, "methodCallContract", ontology.getResource("http://webofcode.orgMethod"));
+        assertContractProperty(ontology, "methodReturnContract", ontology.getResource("http://webofcode.orgMethod"));
+        assertContractProperty(ontology, "callbackContract", ontology.getResource("http://webofcode.orgMethod"));
+        assertContractProperty(ontology, "callbackReturnContract",
+                ontology.getResource("http://webofcode.orgMethod"));
+        assertContractProperty(ontology, "typeUseContract", OWL.Class);
+    }
+
+    private static void assertContractProperty(Model ontology, String localName, Resource expectedDomain) {
+        Resource property = ontology.getResource(ICODM + localName);
+        assertTrue(property.hasProperty(RDFS.domain, expectedDomain),
+                "Expected " + localName + " domain to be " + expectedDomain);
+        assertTrue(property.hasProperty(RDFS.range, ontology.getResource(ICODM + "ApiConditionSet")),
+                "Expected " + localName + " range to be an API condition set");
     }
 
     private static void assertDeclarations(Model ontology, Resource declarationType, List<String> localNames) {
