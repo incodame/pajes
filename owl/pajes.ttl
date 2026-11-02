@@ -59,10 +59,46 @@ icodm:JavaConstraintAnnotation
     rdfs:comment "A Java annotation represented as a constraint in client-use data."@en ;
     rdfs:subClassOf woc:Annotation .
 
+icodm:CoProperty
+    a owl:Class ;
+    rdfs:label "Condition property"@en ;
+    rdfs:comment "A named property-value resource represented using rdfs:label and rdf:value."@en .
+
 icodm:CoAProperty
     a owl:Class ;
+    rdfs:subClassOf icodm:CoProperty ;
     rdfs:label "Constraint annotation property"@en ;
     rdfs:comment "A named property value transferred from a Java constraint annotation."@en .
+
+# refmodule extension with contracts
+
+icodm:ApiContract
+    a owl:Class ;
+    rdfs:label "API semantic contract"@en ;
+    rdfs:comment "A semantic contract attached to an API method or type."@en .
+
+icodm:ApiConditionSet
+    a owl:Class ;
+    rdfs:subClassOf icodm:ApiContract ;
+    rdfs:label "API set of semantic conditions"@en ;
+    rdfs:comment "A contract grouping one or more semantic conditions."@en .
+
+icodm:ApiCondition
+    a owl:Class ;
+    rdfs:label "API semantic condition"@en ;
+    rdfs:comment "Defines an individual semantic condition."@en .
+
+icodm:ApiCoProperty
+    a owl:Class ;
+    rdfs:subClassOf icodm:CoProperty ;
+    rdfs:label "Semantic condition property"@en ;
+    rdfs:comment "A semantic condition property represented using rdfs:label for its name and rdf:value for its value."@en .
+
+icodm:JavaContractAnnotation
+    a owl:Class ;
+    rdfs:subClassOf woc:Annotation, icodm:ApiCondition ;
+    rdfs:label "Java contract annotation"@en ;
+    rdfs:comment "A future Java-annotation-based representation of an API semantic condition."@en .
 
 #################################################################
 # Object properties
@@ -177,6 +213,57 @@ woc:hasReturnType
     rdfs:comment "Links a method to the RDF resource representing its Java return type."@en ;
     rdfs:domain woc:Method ;
     rdfs:range owl:Class .
+
+# refmodule extension with contracts
+
+icodm:methodCallContract
+    a owl:ObjectProperty ;
+    rdfs:label "contract on method call parameters"@en ;
+    rdfs:comment "A condition set describing requirements on arguments to an API method."@en ;
+    rdfs:domain woc:Method ;
+    rdfs:range icodm:ApiConditionSet .
+
+icodm:methodReturnContract
+    a owl:ObjectProperty ;
+    rdfs:label "contract on method return"@en ;
+    rdfs:comment "A condition set describing guarantees or semantics of an API method's return value."@en ;
+    rdfs:domain woc:Method ;
+    rdfs:range icodm:ApiConditionSet .
+
+icodm:callbackContract
+    a owl:ObjectProperty ;
+    rdfs:label "contract on callback parameters"@en ;
+    rdfs:comment "A condition set describing requirements on arguments accepted by an API callback method."@en ;
+    rdfs:domain woc:Method ;
+    rdfs:range icodm:ApiConditionSet .
+
+icodm:callbackReturnContract
+    a owl:ObjectProperty ;
+    rdfs:label "contract on callback return"@en ;
+    rdfs:comment "A condition set describing guarantees or semantics of an API callback method's return value."@en ;
+    rdfs:domain woc:Method ;
+    rdfs:range icodm:ApiConditionSet .
+
+icodm:typeUseContract
+    a owl:ObjectProperty ;
+    rdfs:label "contract on API type use"@en ;
+    rdfs:comment "A condition set describing constraints or semantics attached to an API type."@en ;
+    rdfs:domain owl:Class ;
+    rdfs:range icodm:ApiConditionSet .
+
+icodm:includesCondition
+    a owl:ObjectProperty ;
+    rdfs:label "includes condition"@en ;
+    rdfs:domain icodm:ApiConditionSet ;
+    rdfs:range icodm:ApiCondition .
+
+icodm:conditionProperties
+    a owl:ObjectProperty ;
+    rdfs:label "condition properties"@en ;
+    rdfs:comment "An RDF list of icodm:ApiCoProperty resources. Each resource carries its property name in rdfs:label and its uninterpreted value in rdf:value."@en ;
+    rdfs:domain icodm:ApiCondition ;
+    rdfs:range rdf:List .
+
 
 #################################################################
 # Datatype properties
