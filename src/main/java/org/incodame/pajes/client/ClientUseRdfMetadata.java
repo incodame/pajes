@@ -17,6 +17,8 @@ import org.apache.jena.vocabulary.RDF;
 import org.incodame.pajes.annotations.ApiExpectedFormat;
 import org.incodame.pajes.annotations.ApiTypeConsumer;
 
+import spoon.support.compiler.SpoonPom;
+
 final class ClientUseRdfMetadata {
 
     private static final String ICODM = "https://github.com/Incodam/";
@@ -77,8 +79,51 @@ final class ClientUseRdfMetadata {
         return versions.iterator().next();
     }
 
-    static Resource addDependency(Model model, String moduleGroupId, Collection<String> packages,
-            String branch, String targetPackage, String targetVersion) {
+    static String resolveTargetVersion(String[] classpath, String targetPackage, SpoonPom projectPom)
+            throws IOException {
+        try {
+            return resolveTargetVersion(classpath, targetPackage);
+        } catch (IllegalStateException exception) {
+            if (!exception.getMessage().startsWith("Could not determine Maven dependency version for package ")) {
+                throw exception;
+            }
+        }
+
+        if (!isProjectPackage(projectPom, targetPackage)) {
+            throw new IllegalStateException(
+                    "Could not determine Maven dependency version for package " + targetPackage);
+        }
+        String version = projectPom.getModel().getVersion();
+        if ((version == null || version.isBlank()) && projectPom.getModel().getParent() != null) {
+            version = projectPom.getModel().getParent().getVersion();
+        }
+        if (version == null || !VERSION_PATTERN.matcher(version).matches()) {
+            throw new IllegalStateException("Could not determine Maven project version for package " + targetPackage
+                    + " from " + projectPom.toFile());
+        }
+        return version;
+    }
+
+    static boolean isProjectPackage(SpoonPom projectPom, String targetPackage) {
+        return containsProjectPackage(projectPom, targetPackage.replace('.', File.separatorChar));
+    }
+
+    private static boolean containsProjectPackage(SpoonPom projectPom, String packagePath) {
+        File projectDirectory = projectPom.toFile().getParentFile();
+        File sourcePackage = new File(projectDirectory, "src/main/java/" + packagePath);
+        if (sourcePackage.isDirectory()) {
+            return true;
+        }
+        for (SpoonPom module : projectPom.getModules()) {
+            if (containsProjectPackage(module, packagePath)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    static void addDependency(Model model, String moduleGroupId, Collection<String> packages,
+            Collection<String> targetClientPackages, String branch, String targetPackage, String targetVersion) {
         String icodm = ICODM;
         String woc = WOC;
         model.setNsPrefix("icodm", icodm);
@@ -102,20 +147,22 @@ final class ClientUseRdfMetadata {
                     .addProperty(RDF.type, javaSubModuleType)
                     .addProperty(RDF.type, wocPackageType);
             rootModule.addProperty(hasSubModule, subModule);
-            subModule.addProperty(hasDependency,
-                    model.createResource(buildDependencyUri(moduleGroupId, branch, targetPackage, targetVersion)));
+            if (targetClientPackages.contains(packageName)) {
+                subModule.addProperty(hasDependency,
+                        model.createResource(buildDependencyUri(moduleGroupId, branch, targetPackage, targetVersion)));
+            }
         }
 
-        Resource dependency = model.createResource(buildDependencyUri(
-                moduleGroupId, branch, targetPackage, targetVersion))
-                .addProperty(RDF.type, libraryDependencyType)
-                .addProperty(applBranch, branch)
-                .addProperty(dependencyTargetPackage, model.createResource(icodm + targetPackage))
-                .addProperty(dependencyTargetVersion, targetVersion);
         model.createResource(icodm + targetPackage)
                 .addProperty(RDF.type, javaLibraryType)
                 .addProperty(RDF.type, wocPackageType);
-        return dependency;
+        if (!targetClientPackages.isEmpty()) {
+            model.createResource(buildDependencyUri(moduleGroupId, branch, targetPackage, targetVersion))
+                    .addProperty(RDF.type, libraryDependencyType)
+                    .addProperty(applBranch, branch)
+                    .addProperty(dependencyTargetPackage, model.createResource(icodm + targetPackage))
+                    .addProperty(dependencyTargetVersion, targetVersion);
+        }
     }
 
     static String buildDependencyUri(String moduleGroupId, String branch, String targetPackage, String targetVersion) {

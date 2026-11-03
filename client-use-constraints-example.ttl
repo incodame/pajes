@@ -67,3 +67,4 @@ icodm:org.apache.jena.rdf.model.Model_constraint_27_1_a_ef_format
     a icodm:CoAProperty
     rdfs:label "format"
     rdf:value "aggregate('icodm:', packageName)".
+

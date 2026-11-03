@@ -14,6 +14,8 @@ import java.util.List;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import spoon.processing.AbstractProcessor;
 import spoon.reflect.code.CtExpression;
@@ -42,7 +44,12 @@ public class ClientUseProcessor extends AbstractProcessor<CtElement> {
     private final String targetPackage;
     private final String branch;
     private final Map<String, List<String>> clientAnnotations;
+    private final Map<String, Set<String>> semanticProperties;
+    private final Map<String, String> semanticPrefixes;
+    private final Map<String, String> semanticTerms;
     private final Set<String> clientPackages = new LinkedHashSet<>();
+    private final Set<String> targetClientPackages = new LinkedHashSet<>();
+    private static final Pattern IDENTIFIER = Pattern.compile("[\\p{L}_][\\p{L}\\p{N}_]*");
 
     // Initialisation du modèle Jena et des préfixes graphiques
     private final Model model = ModelFactory.createDefaultModel();
@@ -75,9 +82,16 @@ public class ClientUseProcessor extends AbstractProcessor<CtElement> {
     }
 
     public ClientUseProcessor(String targetPackage, String branch, Map<String, List<String>> clientAnnotations) {
+        this(targetPackage, branch, clientAnnotations, Map.of(), Map.of(), Map.of());
+    }
+
+    public ClientUseProcessor(String targetPackage, String branch, Map<String, List<String>> clientAnnotations,
+            Map<String, Set<String>> semanticProperties, Map<String, String> semanticPrefixes,
+            Map<String, String> semanticTerms) {
         if (targetPackage == null || targetPackage.trim().isEmpty()
-                || branch == null || branch.trim().isEmpty() || clientAnnotations == null) {
-            throw new IllegalArgumentException("Target package, branch, and client annotations must be valid");
+                || branch == null || branch.trim().isEmpty() || clientAnnotations == null
+                || semanticProperties == null || semanticPrefixes == null || semanticTerms == null) {
+            throw new IllegalArgumentException("Target package, branch, and annotation configuration must be valid");
         }
         this.targetPackage = targetPackage;
         this.branch = branch;
@@ -90,6 +104,12 @@ public class ClientUseProcessor extends AbstractProcessor<CtElement> {
             annotationCopy.put(name, List.copyOf(properties));
         });
         this.clientAnnotations = Collections.unmodifiableMap(annotationCopy);
+        Map<String, Set<String>> semanticPropertyCopy = new LinkedHashMap<>();
+        semanticProperties.forEach((name, properties) -> semanticPropertyCopy.put(name,
+                Collections.unmodifiableSet(new LinkedHashSet<>(properties))));
+        this.semanticProperties = Collections.unmodifiableMap(semanticPropertyCopy);
+        this.semanticPrefixes = Collections.unmodifiableMap(new LinkedHashMap<>(semanticPrefixes));
+        this.semanticTerms = Collections.unmodifiableMap(new LinkedHashMap<>(semanticTerms));
 
         // Configuration des préfixes pour un affichage propre en Turtle (.ttl)
         model.setNsPrefix("icodm", ICODM);
@@ -111,6 +131,10 @@ public class ClientUseProcessor extends AbstractProcessor<CtElement> {
 
     public Set<String> getClientPackages() {
         return java.util.Collections.unmodifiableSet(clientPackages);
+    }
+
+    public Set<String> getTargetClientPackages() {
+        return java.util.Collections.unmodifiableSet(targetClientPackages);
     }
 
     @Override
@@ -139,10 +163,14 @@ public class ClientUseProcessor extends AbstractProcessor<CtElement> {
                 String apiConstructorUri = buildMemberUri(executableRef);
                 Resource clientResource = getClientTypeResource(clientType);
                 clientResource.addProperty(wocCalls, model.createResource(apiConstructorUri));
+                recordTargetClientPackage(clientType);
             }
         }
         else if (element instanceof CtMethod<?> && isApiCallbackWrapper((CtMethod<?>) element)) {
             addApiCallbackWrapper((CtMethod<?>) element);
+        }
+        else if (element instanceof CtMethod<?> && isApiImplementation((CtMethod<?>) element)) {
+            addApiImplementation((CtMethod<?>) element);
         }
         else if (element instanceof CtMethod<?> && isApiTypeConsumer((CtMethod<?>) element)) {
             addApiTypeConsumer((CtMethod<?>) element);
@@ -156,6 +184,7 @@ public class ClientUseProcessor extends AbstractProcessor<CtElement> {
                 if (superclass != null && isInTargetPackage(superclass.getQualifiedName())) {
                     Resource apiClassResource = model.createResource(ICODM + superclass.getQualifiedName());
                     getClientTypeResource(clientType).addProperty(wocExtends, apiClassResource);
+                    recordTargetClientPackage(clientType);
                 }
             }
 
@@ -164,6 +193,7 @@ public class ClientUseProcessor extends AbstractProcessor<CtElement> {
                     Resource apiInterfaceResource = model.createResource(ICODM + iface.getQualifiedName());
                     getClientTypeResource(clientType).addProperty(clientType instanceof CtInterface<?> ? wocExtends : wocImplements,
                             apiInterfaceResource);
+                    recordTargetClientPackage(clientType);
                 }
             }
         }
@@ -174,6 +204,7 @@ public class ClientUseProcessor extends AbstractProcessor<CtElement> {
         String apiMethodUri = buildMemberUri(apiMethodReference);
         Resource clientResource = getClientTypeResource(clientType);
         clientResource.addProperty(wocCalls, model.createResource(apiMethodUri));
+        recordTargetClientPackage(clientType);
         addInvocationConstraints(clientCall, apiInvocation, apiMethodReference, apiMethodUri,
                 clientResource, wrapperMethod);
     }
@@ -183,7 +214,10 @@ public class ClientUseProcessor extends AbstractProcessor<CtElement> {
                 new spoon.reflect.visitor.filter.TypeFilter<>(CtInvocation.class)).stream()
                 .filter(invocation -> isInTargetPackage(invocation.getExecutable()))
                 .toList();
-        if (apiInvocations.size() != 1) {
+        if (apiInvocations.isEmpty()) {
+            return;
+        }
+        if (apiInvocations.size() > 1) {
             throw new IllegalStateException("@ApiWrapper method must contain exactly one direct call to target package "
                     + targetPackage + ": " + wrapperMethod.getDeclaringType().getQualifiedName()
                     + "#" + wrapperMethod.getSimpleName());
@@ -208,6 +242,11 @@ public class ClientUseProcessor extends AbstractProcessor<CtElement> {
                 .anyMatch(annotation -> "ApiCallbackWrapper".equals(annotation.getAnnotationType().getSimpleName()));
     }
 
+    private boolean isApiImplementation(CtMethod<?> method) {
+        return method.getAnnotations().stream()
+                .anyMatch(annotation -> "ApiImplementation".equals(annotation.getAnnotationType().getSimpleName()));
+    }
+
     private boolean isApiTypeConsumer(CtMethod<?> method) {
         return method.getAnnotations().stream()
                 .anyMatch(annotation -> "ApiTypeConsumer".equals(annotation.getAnnotationType().getSimpleName()));
@@ -226,6 +265,7 @@ public class ClientUseProcessor extends AbstractProcessor<CtElement> {
             if (parameterType == null || !isInTargetPackage(parameterType.getQualifiedName())) {
                 continue;
             }
+            recordTargetClientPackage(clientType);
 
             List<CtAnnotation<?>> matchedAnnotations = matchingAnnotations(parameter.getAnnotations());
             for (int annotationIndex = 0; annotationIndex < matchedAnnotations.size(); annotationIndex++) {
@@ -255,6 +295,7 @@ public class ClientUseProcessor extends AbstractProcessor<CtElement> {
 
         CtType<?> clientType = callbackMethod.getDeclaringType();
         Resource clientResource = getClientTypeResource(clientType);
+        recordTargetClientPackage(clientType);
         String apiMethodUri = buildMemberUri(apiMethod.getReference());
         clientResource.addProperty(wocCalls, model.createResource(apiMethodUri));
 
@@ -267,6 +308,32 @@ public class ClientUseProcessor extends AbstractProcessor<CtElement> {
         List<CtAnnotation<?>> returnAnnotations = matchingReturnAnnotations(callbackMethod);
         addMethodConstraints(apiMethod, apiMethodUri, sourceLine, clientResource,
                 parameterAnnotations, returnAnnotations, onCallback, onCallbackReturn);
+    }
+
+    private void addApiImplementation(CtMethod<?> implementationMethod) {
+        List<CtMethod<?>> apiMethods = implementationMethod.getTopDefinitions().stream()
+                .filter(method -> isInTargetPackage(method.getDeclaringType().getQualifiedName()))
+                .toList();
+        if (apiMethods.size() != 1
+                || apiMethods.get(0).getParameters().size() != implementationMethod.getParameters().size()) {
+            return;
+        }
+        CtMethod<?> apiMethod = apiMethods.get(0);
+        CtType<?> clientType = implementationMethod.getDeclaringType();
+        Resource clientResource = getClientTypeResource(clientType);
+        recordTargetClientPackage(clientType);
+        String apiMethodUri = buildMemberUri(apiMethod.getReference());
+        int sourceLine = implementationMethod.getPosition().isValidPosition()
+                ? implementationMethod.getPosition().getLine() : -1;
+
+        List<List<CtAnnotation<?>>> implementationParameterAnnotations = new ArrayList<>();
+        for (CtParameter<?> parameter : implementationMethod.getParameters()) {
+            implementationParameterAnnotations.add(matchingAnnotations(parameter.getAnnotations()));
+        }
+        List<CtAnnotation<?>> implementationReturnAnnotations = matchingReturnAnnotations(implementationMethod);
+        addMethodConstraints(apiMethod, apiMethodUri, sourceLine, clientResource,
+                implementationParameterAnnotations, implementationReturnAnnotations,
+                onCallback, onCallbackReturn);
     }
 
     private boolean isInTargetPackage(CtExecutableReference<?> executableReference) {
@@ -282,6 +349,17 @@ public class ClientUseProcessor extends AbstractProcessor<CtElement> {
         if (ctPackage != null && !ctPackage.getQualifiedName().isEmpty()) {
             String packageName = ctPackage.getQualifiedName();
             clientPackages.add(packageName);
+        }
+    }
+
+    private void recordTargetClientPackage(CtType<?> clientType) {
+        recordClientPackage(clientType);
+        CtPackage ctPackage = clientType.getPackage();
+        if (ctPackage == null) {
+            ctPackage = clientType.getParent(CtPackage.class);
+        }
+        if (ctPackage != null && !ctPackage.getQualifiedName().isEmpty()) {
+            targetClientPackages.add(ctPackage.getQualifiedName());
         }
     }
 
@@ -466,6 +544,11 @@ public class ClientUseProcessor extends AbstractProcessor<CtElement> {
                     .addProperty(RDF.type, constraintModel.createResource(ICODM + "CoAProperty"))
                     .addProperty(rdfsLabel, propertyName)
                     .addProperty(rdfValue, toRdfValue(value));
+            List<Resource> semanticReferences = semanticReferences(annotation, propertyName, value);
+            if (!semanticReferences.isEmpty()) {
+                propertyResource.addProperty(constraintModel.createProperty(ICODM + "semanticallyRefersTo"),
+                        constraintModel.createList(semanticReferences.iterator()));
+            }
             propertyResources.add(propertyResource);
         }
         if (!propertyResources.isEmpty()) {
@@ -473,6 +556,42 @@ public class ClientUseProcessor extends AbstractProcessor<CtElement> {
                     constraintModel.createList(propertyResources.iterator()));
         }
         return constraint;
+    }
+
+    private List<Resource> semanticReferences(CtAnnotation<?> annotation, String propertyName,
+            CtExpression<?> value) {
+        Set<String> selectedProperties = semanticProperties.get(annotation.getAnnotationType().getQualifiedName());
+        if (selectedProperties == null) {
+            selectedProperties = semanticProperties.get(annotation.getAnnotationType().getSimpleName());
+        }
+        if (selectedProperties == null || !selectedProperties.contains(propertyName)
+                || !(value instanceof CtLiteral<?>)) {
+            return List.of();
+        }
+        Object literalValue = ((CtLiteral<?>) value).getValue();
+        if (!(literalValue instanceof String)) {
+            return List.of();
+        }
+
+        List<Resource> references = new ArrayList<>();
+        Set<String> seenTerms = new LinkedHashSet<>();
+        Matcher matcher = IDENTIFIER.matcher((String) literalValue);
+        while (matcher.find()) {
+            String term = matcher.group();
+            String mappedCurie = semanticTerms.get(term);
+            if (mappedCurie != null && seenTerms.add(term)) {
+                int separator = mappedCurie.indexOf(':');
+                String prefix = mappedCurie.substring(0, separator);
+                String localName = mappedCurie.substring(separator + 1);
+                String namespace = semanticPrefixes.get(prefix);
+                if (namespace == null) {
+                    throw new IllegalStateException("No namespace configured for semantic prefix " + prefix);
+                }
+                constraintModel.setNsPrefix(prefix, namespace);
+                references.add(constraintModel.createResource(namespace + localName));
+            }
+        }
+        return references;
     }
 
     private CtExpression<?> annotationPropertyValue(CtAnnotation<?> annotation, String propertyName) {

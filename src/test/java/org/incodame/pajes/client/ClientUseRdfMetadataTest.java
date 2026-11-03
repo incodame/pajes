@@ -13,10 +13,15 @@ import java.util.jar.JarOutputStream;
 
 import org.apache.jena.rdf.model.Model;
 import org.apache.jena.rdf.model.ModelFactory;
+import org.apache.jena.rdf.model.Property;
 import org.apache.jena.rdf.model.Resource;
 import org.apache.jena.vocabulary.RDF;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+
+import spoon.MavenLauncher;
+import spoon.support.StandardEnvironment;
+import spoon.support.compiler.SpoonPom;
 
 class ClientUseRdfMetadataTest {
 
@@ -34,16 +39,48 @@ class ClientUseRdfMetadataTest {
     }
 
     @Test
+    void resolvesTargetVersionFromProjectPomForAnOwnedPackage(@TempDir Path tempDir) throws Exception {
+        Files.writeString(tempDir.resolve("pom.xml"),
+                "<project><modelVersion>4.0.0</modelVersion><groupId>org.incodame.pajes</groupId>"
+                        + "<artifactId>pajes</artifactId><version>0.0.1-SNAPSHOT</version></project>");
+        Path packageDirectory = Files.createDirectories(tempDir.resolve(
+                "src/main/java/org/incodame/pajes/outputApi"));
+        Files.writeString(packageDirectory.resolve("RdfGenerator.java"),
+                "package org.incodame.pajes.outputApi; public interface RdfGenerator { }");
+        SpoonPom pom = new SpoonPom(tempDir.toString(), MavenLauncher.SOURCE_TYPE.APP_SOURCE,
+                new StandardEnvironment());
+
+        assertEquals("0.0.1-SNAPSHOT", ClientUseRdfMetadata.resolveTargetVersion(
+                new String[0], "org.incodame.pajes.outputApi", pom));
+    }
+
+    @Test
+    void doesNotUseProjectVersionForAnExternalPackageWithoutClasspathVersion(@TempDir Path tempDir) throws Exception {
+        Files.writeString(tempDir.resolve("pom.xml"),
+                "<project><modelVersion>4.0.0</modelVersion><groupId>org.incodame.pajes</groupId>"
+                        + "<artifactId>pajes</artifactId><version>0.0.1-SNAPSHOT</version></project>");
+        SpoonPom pom = new SpoonPom(tempDir.toString(), MavenLauncher.SOURCE_TYPE.APP_SOURCE,
+                new StandardEnvironment());
+
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class,
+                () -> ClientUseRdfMetadata.resolveTargetVersion(
+                        new String[0], "org.external.library", pom));
+    }
+
+    @Test
     void createsBranchAndVersionSpecificLibraryDependency() {
         Model model = ModelFactory.createDefaultModel();
         String modulePackage = "org.incodame.pajes.client";
         String targetPackage = "org.apache.jena.rdf.model";
-        Resource dependency = ClientUseRdfMetadata.addDependency(model, "org.incodame.pajes",
-                Collections.singleton(modulePackage), "main", targetPackage, "4.10.0");
+        ClientUseRdfMetadata.addDependency(model, "org.incodame.pajes",
+                Collections.singleton(modulePackage), Collections.singleton(modulePackage),
+                "main", targetPackage, "4.10.0");
 
         Resource rootModule = model.getResource(ICODM + "org.incodame.pajes");
         Resource clientModule = model.getResource(ICODM + modulePackage);
         Resource targetPackageResource = model.getResource(ICODM + targetPackage);
+        Resource dependency = model.getResource(ClientUseRdfMetadata.buildDependencyUri(
+                "org.incodame.pajes", "main", targetPackage, "4.10.0"));
         Resource expectedDependency = model.getResource(dependency.getURI());
 
         assertTrue(dependency.getURI().matches(
@@ -64,6 +101,32 @@ class ClientUseRdfMetadataTest {
                 "org.incodame.pajes", "main", targetPackage, "4.9.0"));
         assertNotEquals(dependency.getURI(), ClientUseRdfMetadata.buildDependencyUri(
                 "org.incodame.pajes", "main", "org.apache.jena", "4.10.0"));
+    }
+
+    @Test
+    void doesNotLinkProjectOwnedPackageAsLibraryDependency() {
+        Model model = ModelFactory.createDefaultModel();
+        String targetPackage = "org.incodame.pajes.outputApi";
+        ClientUseRdfMetadata.addDependency(model, "org.incodame.pajes",
+                java.util.List.of("org.incodame.pajes.apiref", "org.incodame.pajes.client", targetPackage),
+                Collections.singleton("org.incodame.pajes.client"),
+                "main", targetPackage, "0.0.1-SNAPSHOT");
+
+        Property dependencyProperty = model.createProperty(ICODM + "hasDependency");
+        Resource clientPackage = model.getResource(ICODM + "org.incodame.pajes.client");
+        Resource projectPackage = model.getResource(ICODM + "org.incodame.pajes.apiref");
+        Resource targetResource = model.getResource(ICODM + targetPackage);
+        Resource dependency = model.getResource(ClientUseRdfMetadata.buildDependencyUri(
+                "org.incodame.pajes", "main", targetPackage, "0.0.1-SNAPSHOT"));
+        assertTrue(projectPackage.hasProperty(RDF.type,
+                model.getResource(ICODM + "JavaSubModule")));
+        assertTrue(targetResource.hasProperty(RDF.type,
+                model.getResource(ICODM + "JavaLibrary")));
+        assertTrue(clientPackage.hasProperty(dependencyProperty, dependency));
+        assertTrue(dependency.hasProperty(RDF.type, model.getResource(ICODM + "LibraryDependency")));
+        assertTrue(dependency.hasProperty(model.createProperty(ICODM + "targetPackage"), targetResource));
+        assertTrue(!projectPackage.hasProperty(dependencyProperty));
+        assertTrue(!targetResource.hasProperty(dependencyProperty));
     }
 
     private static Path createJenaJar(Path jarPath) throws Exception {

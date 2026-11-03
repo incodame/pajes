@@ -78,6 +78,34 @@ class ClientUseCompilerTest {
         }
 
         @Test
+        void clientUseToRdfGeneratesTurtleWithoutMutatingModel(@TempDir Path tempDir) throws Exception {
+                ClientUseToRdf generator = new ClientUseToRdf();
+                org.apache.jena.rdf.model.Model model = org.apache.jena.rdf.model.ModelFactory.createDefaultModel();
+                model.createResource("https://example.org/subject")
+                                .addProperty(RDF.type, model.createResource("https://example.org/Type"));
+                long originalSize = model.size();
+                Path outputFile = tempDir.resolve("generated.ttl");
+
+                int tripleCount = generator.generateRdf(outputFile, model, "timestamp-value");
+
+                assertEquals(originalSize, tripleCount);
+                assertEquals(originalSize, model.size());
+                String turtle = Files.readString(outputFile);
+                assertTrue(turtle.contains("https://example.org/subject"));
+                assertFalse(turtle.contains("timestamp-value"));
+        }
+
+        @Test
+        void clientUseToRdfPropagatesOutputFailures(@TempDir Path tempDir) {
+                ClientUseToRdf generator = new ClientUseToRdf();
+                org.apache.jena.rdf.model.Model model = org.apache.jena.rdf.model.ModelFactory.createDefaultModel();
+
+                assertThrows(IOException.class,
+                                () -> generator.generateRdf(tempDir.resolve("missing").resolve("output.ttl"),
+                                                model, null));
+        }
+
+        @Test
         void launchesConfiguredMavenInsteadOfProjectLocalScript(@TempDir Path tempDir) throws Exception {
                 Path home = tempDir.resolve("Maven installation");
                 Path bin = Files.createDirectories(home.resolve("bin"));
@@ -275,6 +303,33 @@ class ClientUseCompilerTest {
                                 "EnumValue", List.of("outputLanguages"),
                                 "sample.ValueRange", List.of("lower", "upper")),
                                 ClientUseToRdf.resolveClientAnnotations(configuration));
+        }
+
+        @Test
+        void readsConfiguredSemanticPropertiesAndMappings(@TempDir Path tempDir) throws Exception {
+                Path configuration = tempDir.resolve("pajes-config.yaml");
+                Files.writeString(configuration,
+                                "client-annotations:\n"
+                                                + "  - name: ApiExpectedFormat\n"
+                                                + "    properties: [select, format]\n"
+                                                + "    semantic-properties: [format]\n"
+                                                + "semantic-mappings:\n"
+                                                + "  prefixes:\n"
+                                                + "    xsd: 'http://www.w3.org/2001/XMLSchema#'\n"
+                                                + "  terms:\n"
+                                                + "    timestamp: xsd:dateTime\n"
+                                                + "    isoDate: xsd:date\n");
+
+                ClientUseToRdf.ClientUseConfiguration configurationData =
+                                ClientUseToRdf.resolveClientUseConfiguration(configuration);
+                assertEquals(Map.of("ApiExpectedFormat", List.of("select", "format")),
+                                configurationData.clientAnnotations());
+                assertEquals(Map.of("ApiExpectedFormat", java.util.Set.of("format")),
+                                configurationData.semanticProperties());
+                assertEquals(Map.of("xsd", "http://www.w3.org/2001/XMLSchema#"),
+                                configurationData.semanticPrefixes());
+                assertEquals(Map.of("timestamp", "xsd:dateTime", "isoDate", "xsd:date"),
+                                configurationData.semanticTerms());
         }
 
         @Test
@@ -721,6 +776,161 @@ class ClientUseCompilerTest {
                 .map(resource -> resource.getProperty(RDF.value).getString())
                 .toList();
         assertEquals(List.of("nsPrefix", "aggregate('icodm:', packageName)"), values);
+    }
+
+    @Test
+    void emitsExpectedFormatConstraintForClientUseToRdf() {
+        Path sourceRoot = Path.of("src/main/java").toAbsolutePath();
+        Launcher launcher = new Launcher();
+        launcher.getEnvironment().setComplianceLevel(17);
+        launcher.getEnvironment().setNoClasspath(true);
+        launcher.addInputResource(sourceRoot.resolve(
+                "org/incodame/pajes/client/ClientUseToRdf.java").toString());
+        launcher.addInputResource(sourceRoot.resolve(
+                "org/incodame/pajes/outputApi/RdfGenerator.java").toString());
+        launcher.addInputResource(sourceRoot.resolve(
+                "org/incodame/pajes/annotations/ApiImplementation.java").toString());
+        launcher.addInputResource(sourceRoot.resolve(
+                "org/incodame/pajes/annotations/ApiWrapper.java").toString());
+        launcher.addInputResource(sourceRoot.resolve(
+                "org/incodame/pajes/annotations/ApiExpectedFormat.java").toString());
+        ClientUseProcessor processor = new ClientUseProcessor("org.incodame.pajes.outputApi", "main",
+                Map.of("ApiExpectedFormat", List.of("select", "format")),
+                Map.of("ApiExpectedFormat", java.util.Set.of("format")),
+                Map.of("xsd", "http://www.w3.org/2001/XMLSchema#",
+                        "time", "http://www.w3.org/2006/time#"),
+                Map.of("timestamp", "xsd:dateTime"));
+        launcher.addProcessor(processor);
+        launcher.run();
+
+        spoon.reflect.declaration.CtType<?> clientType = launcher.getFactory().Type()
+                .get(ClientUseToRdf.class.getName());
+        spoon.reflect.declaration.CtMethod<?> generateRdf = clientType.getMethodsByName("generateRdf").get(0);
+
+        String namespace = "https://github.com/Incodam/";
+        org.apache.jena.rdf.model.Model constraints = processor.getConstraintModel();
+        org.apache.jena.rdf.model.Resource client = constraints.getResource(
+                namespace + ClientUseToRdf.class.getName());
+        assertEquals(java.util.Set.of("org.incodame.pajes.client"), processor.getTargetClientPackages());
+        assertFalse(constraints.toString().contains(
+                namespace + ClientUseToRdf.class.getName() + "_write_"),
+                "Methods implementing APIs outside the selected package must not emit constraints");
+        org.apache.jena.rdf.model.Resource constraintSet = client.listProperties(
+                constraints.createProperty(namespace + "onCallback")).toList().stream()
+                .map(statement -> statement.getObject().asResource())
+                .filter(resource -> resource.getURI().startsWith(
+                        namespace + "org.incodame.pajes.outputApi.RdfGenerator_generateRdf_"))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("Expected RdfGenerator implementation constraint set"));
+        assertTrue(constraintSet.getURI().startsWith(
+                namespace + "org.incodame.pajes.outputApi.RdfGenerator_generateRdf_"));
+        assertTrue(constraintSet.getURI().endsWith(
+                "_constraint_set_" + generateRdf.getPosition().getLine()));
+
+        org.apache.jena.rdf.model.Resource constraint = constraintSet.getProperty(
+                constraints.createProperty(namespace + "hasContraints")).getResource()
+                .as(org.apache.jena.rdf.model.RDFList.class).getHead().asResource();
+        assertTrue(constraint.getURI().endsWith(
+                "_constraint_" + generateRdf.getPosition().getLine() + "_3"));
+        org.apache.jena.rdf.model.Resource annotation = constraint.getProperty(
+                constraints.createProperty(namespace + "annotations")).getResource();
+        assertEquals("ApiExpectedFormat", annotation.getProperty(
+                constraints.createProperty("http://www.w3.org/2000/01/rdf-schema#label")).getString());
+
+        org.apache.jena.rdf.model.RDFList annotationProperties = annotation.getProperty(
+                constraints.createProperty(namespace + "annotationProperties"))
+                .getResource().as(org.apache.jena.rdf.model.RDFList.class);
+        List<org.apache.jena.rdf.model.Resource> propertyResources = annotationProperties.asJavaList().stream()
+                .map(org.apache.jena.rdf.model.RDFNode::asResource)
+                .toList();
+        assertEquals(List.of("select", "format"), propertyResources.stream()
+                .map(property -> property.getProperty(
+                        constraints.createProperty("http://www.w3.org/2000/01/rdf-schema#label")).getString())
+                .toList());
+        assertEquals(List.of("", "aggregate('@', timestamp)"), propertyResources.stream()
+                .map(property -> property.getProperty(RDF.value).getString())
+                .toList());
+        org.apache.jena.rdf.model.Resource formatProperty = propertyResources.get(1);
+        org.apache.jena.rdf.model.RDFList semanticReferences = formatProperty.getProperty(
+                constraints.createProperty(namespace + "semanticallyRefersTo"))
+                .getResource().as(org.apache.jena.rdf.model.RDFList.class);
+        assertEquals(List.of("http://www.w3.org/2001/XMLSchema#dateTime"), semanticReferences.asJavaList().stream()
+                .map(org.apache.jena.rdf.model.RDFNode::asResource)
+                .map(org.apache.jena.rdf.model.Resource::getURI)
+                .toList());
+        assertTrue(constraints.getNsPrefixMap().containsKey("xsd"));
+        assertFalse(constraints.getNsPrefixMap().containsKey("time"),
+                "Unused configured semantic prefixes should not be serialized");
+    }
+
+    @Test
+    void mapsAllTermsOnlyOnConfiguredAnnotationProperties(@TempDir Path tempDir) throws Exception {
+        Path apiSource = tempDir.resolve("src/api/RdfGenerator.java");
+        Path implementationSource = tempDir.resolve("src/client/Generator.java");
+        Path annotations = tempDir.resolve("src/client/Annotations.java");
+        Files.createDirectories(apiSource.getParent());
+        Files.createDirectories(implementationSource.getParent());
+        Files.writeString(apiSource,
+                "package api;\n"
+                        + "public interface RdfGenerator { void generate(String value); }\n");
+        Files.writeString(annotations,
+                "package client;\n"
+                        + "import java.lang.annotation.*;\n"
+                        + "@Target(ElementType.METHOD) @interface ApiImplementation { }\n"
+                        + "@Target(ElementType.PARAMETER) @interface ApiExpectedFormat {\n"
+                        + "    String select() default \"\"; String format();\n"
+                        + "}\n");
+        Files.writeString(implementationSource,
+                "package client;\n"
+                        + "public class Generator implements api.RdfGenerator {\n"
+                        + "    @ApiImplementation\n"
+                        + "    public void generate(@ApiExpectedFormat(select = \"timestamp\", "
+                        + "format = \"aggregate('@', timestamp, isoDate)\") String value) { }\n"
+                        + "}\n");
+
+        ClientUseProcessor processor = new ClientUseProcessor("api", "main",
+                Map.of("ApiExpectedFormat", List.of("select", "format")),
+                Map.of("ApiExpectedFormat", java.util.Set.of("format")),
+                Map.of("xsd", "http://www.w3.org/2001/XMLSchema#"),
+                Map.of("timestamp", "xsd:dateTime", "isoDate", "xsd:date"));
+        Launcher launcher = new Launcher();
+        launcher.getEnvironment().setComplianceLevel(17);
+        launcher.getEnvironment().setNoClasspath(true);
+        launcher.addInputResource(apiSource.toString());
+        launcher.addInputResource(annotations.toString());
+        launcher.addInputResource(implementationSource.toString());
+        launcher.addProcessor(processor);
+        launcher.run();
+
+        String namespace = "https://github.com/Incodam/";
+        org.apache.jena.rdf.model.Model constraints = processor.getConstraintModel();
+        org.apache.jena.rdf.model.Resource client = constraints.getResource(namespace + "client.Generator");
+        org.apache.jena.rdf.model.Resource constraintSet = client.getProperty(
+                constraints.createProperty(namespace + "onCallback")).getResource();
+        org.apache.jena.rdf.model.Resource constraint = constraintSet.getProperty(
+                constraints.createProperty(namespace + "hasContraints")).getResource()
+                .as(org.apache.jena.rdf.model.RDFList.class).getHead().asResource();
+        org.apache.jena.rdf.model.Resource annotation = constraint.getProperty(
+                constraints.createProperty(namespace + "annotations")).getResource();
+        org.apache.jena.rdf.model.RDFList properties = annotation.getProperty(
+                constraints.createProperty(namespace + "annotationProperties"))
+                .getResource().as(org.apache.jena.rdf.model.RDFList.class);
+        List<org.apache.jena.rdf.model.Resource> propertyResources = properties.asJavaList().stream()
+                .map(org.apache.jena.rdf.model.RDFNode::asResource)
+                .toList();
+
+        assertFalse(propertyResources.get(0).hasProperty(
+                constraints.createProperty(namespace + "semanticallyRefersTo")),
+                "The select property must not receive semantic mappings");
+        org.apache.jena.rdf.model.RDFList semanticReferences = propertyResources.get(1).getProperty(
+                constraints.createProperty(namespace + "semanticallyRefersTo"))
+                .getResource().as(org.apache.jena.rdf.model.RDFList.class);
+        assertEquals(List.of(
+                "http://www.w3.org/2001/XMLSchema#dateTime",
+                "http://www.w3.org/2001/XMLSchema#date"), semanticReferences.asJavaList().stream()
+                .map(org.apache.jena.rdf.model.RDFNode::asResource)
+                .map(org.apache.jena.rdf.model.Resource::getURI)
+                .toList());
     }
 
     @Test
