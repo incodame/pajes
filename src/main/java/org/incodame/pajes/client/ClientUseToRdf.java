@@ -30,23 +30,25 @@ import org.apache.jena.rdf.model.ModelFactory;
 import org.apache.jena.rdf.model.RDFErrorHandler;
 import org.apache.jena.rdf.model.RDFWriterI;
 import org.incodame.pajes.annotations.ApiWrapper;
-import org.incodame.pajes.annotations.ApiCallbackWrapper;
+import org.incodame.pajes.annotations.ApiImplementation;
 import org.incodame.pajes.annotations.EnumValue;
 import org.incodame.pajes.annotations.ValueRange;
+import org.incodame.pajes.annotations.ApiExpectedFormat;
+import org.incodame.pajes.outputApi.RdfGenerator;
 
-public class ClientUseToRdf implements RDFWriterI {
+public class ClientUseToRdf implements RDFWriterI, RdfGenerator {
     private static final Pattern RELEASE_BRANCH = Pattern.compile("\\d+(?:\\.\\d+)*");
     private final Map<String, Object> writerProperties = new HashMap<>();
     private RDFErrorHandler errorHandler;
 
-    @ApiCallbackWrapper
+    @ApiImplementation
     @Override
     public void write(Model model, Writer out, @EnumValue(values = {
             "RDF/XML", "RDF/XML-ABBREV", "N-TRIPLE", "TURTLE", "TTL", "N3" }) String lang) {
         writeWithConfiguredWriter(model, out, lang);
     }
 
-    @ApiCallbackWrapper
+    @ApiImplementation
     @Override
     public void write(Model model, OutputStream out, @EnumValue(values = {
             "RDF/XML", "RDF/XML-ABBREV", "N-TRIPLE", "TURTLE", "TTL", "N3" }) String lang) {
@@ -70,13 +72,22 @@ public class ClientUseToRdf implements RDFWriterI {
         writer.setErrorHandler(errorHandler);
     }
 
-    @ApiCallbackWrapper
+    @ApiImplementation
+    @Override
+    public int generateRdf(Path outputFilePath, Model model, @ApiExpectedFormat(format = "timestamp") String timestamp) throws IOException {
+        try (Writer out = Files.newBufferedWriter(outputFilePath, StandardCharsets.UTF_8)) {
+            writeModel(out, model, "TURTLE");
+        }
+        return Math.toIntExact(model.size());
+    }
+
+    @ApiImplementation
     @Override
     public Object setProperty(String propName, Object propValue) {
         return writerProperties.put(propName, propValue);
     }
 
-    @ApiCallbackWrapper
+    @ApiImplementation
     @Override
     public RDFErrorHandler setErrorHandler(RDFErrorHandler errHandler) {
         RDFErrorHandler previousHandler = errorHandler;
@@ -148,15 +159,22 @@ public class ClientUseToRdf implements RDFWriterI {
         reportProgress(log, "Starting Spoon analysis; compiler diagnostics: client-use-errors.log");
         launcher.run();
 
-        String targetVersion = ClientUseRdfMetadata.resolveTargetVersion(classpathEntries, targetPackage);
+        String targetVersion = ClientUseRdfMetadata.resolveTargetVersion(
+                classpathEntries, targetPackage, launcher.getPomFile());
         String moduleGroupId = resolveGroupId(launcher);
+        boolean targetIsProjectPackage = ClientUseRdfMetadata.isProjectPackage(launcher.getPomFile(), targetPackage);
         Set<String> clientPackages = rdfProcessor.getClientPackages();
+        Set<String> targetClientPackages = rdfProcessor.getTargetClientPackages();
         if (clientPackages.isEmpty()) {
             throw new IllegalStateException("No Java packages were found in client module: " + clientModulePath);
         }
         ClientUseRdfMetadata.addDependency(rdfProcessor.getModel(), moduleGroupId, clientPackages,
-                branch, targetPackage, targetVersion);
-        reportProgress(log, "Resolved " + targetPackage + " dependency version " + targetVersion);
+                targetClientPackages, branch, targetPackage, targetVersion);
+        if (targetIsProjectPackage) {
+            reportProgress(log, "Resolved " + targetPackage + " as a package in the client project");
+        } else {
+            reportProgress(log, "Resolved " + targetPackage + " dependency version " + targetVersion);
+        }
         
         // Check of the generated RDF model for consistency and completeness
         ClientUseRdfMetadata.checkModel(rdfProcessor.getModel(), log);
@@ -178,7 +196,7 @@ public class ClientUseToRdf implements RDFWriterI {
     }
 
     @ApiWrapper 
-    private static void writeModel(FileWriter out, Model model, 
+    private static void writeModel(Writer out, Model model, 
         @EnumValue(values = {"RDF/XML", "RDF/XML-ABBREV", "N-TRIPLE", "TURTLE", "TTL", "N3"}) String format) throws IOException {
         model.write(out, format);
     }

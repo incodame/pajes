@@ -8,7 +8,7 @@ import java.lang.annotation.Target;
 @Target(ElementType.PARAMETER)
 @Retention(RetentionPolicy.RUNTIME)
 public @interface ApiExpectedFormat {
-    String select();
+    String select() default "";
 
     String format();
 }

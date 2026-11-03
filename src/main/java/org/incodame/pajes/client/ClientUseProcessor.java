@@ -43,6 +43,7 @@ public class ClientUseProcessor extends AbstractProcessor<CtElement> {
     private final String branch;
     private final Map<String, List<String>> clientAnnotations;
     private final Set<String> clientPackages = new LinkedHashSet<>();
+    private final Set<String> targetClientPackages = new LinkedHashSet<>();
 
     // Initialisation du modèle Jena et des préfixes graphiques
     private final Model model = ModelFactory.createDefaultModel();
@@ -113,6 +114,10 @@ public class ClientUseProcessor extends AbstractProcessor<CtElement> {
         return java.util.Collections.unmodifiableSet(clientPackages);
     }
 
+    public Set<String> getTargetClientPackages() {
+        return java.util.Collections.unmodifiableSet(targetClientPackages);
+    }
+
     @Override
     public void process(CtElement element) {
         if (element instanceof CtInvocation<?>) {
@@ -139,10 +144,14 @@ public class ClientUseProcessor extends AbstractProcessor<CtElement> {
                 String apiConstructorUri = buildMemberUri(executableRef);
                 Resource clientResource = getClientTypeResource(clientType);
                 clientResource.addProperty(wocCalls, model.createResource(apiConstructorUri));
+                recordTargetClientPackage(clientType);
             }
         }
         else if (element instanceof CtMethod<?> && isApiCallbackWrapper((CtMethod<?>) element)) {
             addApiCallbackWrapper((CtMethod<?>) element);
+        }
+        else if (element instanceof CtMethod<?> && isApiImplementation((CtMethod<?>) element)) {
+            addApiImplementation((CtMethod<?>) element);
         }
         else if (element instanceof CtMethod<?> && isApiTypeConsumer((CtMethod<?>) element)) {
             addApiTypeConsumer((CtMethod<?>) element);
@@ -156,6 +165,7 @@ public class ClientUseProcessor extends AbstractProcessor<CtElement> {
                 if (superclass != null && isInTargetPackage(superclass.getQualifiedName())) {
                     Resource apiClassResource = model.createResource(ICODM + superclass.getQualifiedName());
                     getClientTypeResource(clientType).addProperty(wocExtends, apiClassResource);
+                    recordTargetClientPackage(clientType);
                 }
             }
 
@@ -164,6 +174,7 @@ public class ClientUseProcessor extends AbstractProcessor<CtElement> {
                     Resource apiInterfaceResource = model.createResource(ICODM + iface.getQualifiedName());
                     getClientTypeResource(clientType).addProperty(clientType instanceof CtInterface<?> ? wocExtends : wocImplements,
                             apiInterfaceResource);
+                    recordTargetClientPackage(clientType);
                 }
             }
         }
@@ -174,6 +185,7 @@ public class ClientUseProcessor extends AbstractProcessor<CtElement> {
         String apiMethodUri = buildMemberUri(apiMethodReference);
         Resource clientResource = getClientTypeResource(clientType);
         clientResource.addProperty(wocCalls, model.createResource(apiMethodUri));
+        recordTargetClientPackage(clientType);
         addInvocationConstraints(clientCall, apiInvocation, apiMethodReference, apiMethodUri,
                 clientResource, wrapperMethod);
     }
@@ -183,7 +195,10 @@ public class ClientUseProcessor extends AbstractProcessor<CtElement> {
                 new spoon.reflect.visitor.filter.TypeFilter<>(CtInvocation.class)).stream()
                 .filter(invocation -> isInTargetPackage(invocation.getExecutable()))
                 .toList();
-        if (apiInvocations.size() != 1) {
+        if (apiInvocations.isEmpty()) {
+            return;
+        }
+        if (apiInvocations.size() > 1) {
             throw new IllegalStateException("@ApiWrapper method must contain exactly one direct call to target package "
                     + targetPackage + ": " + wrapperMethod.getDeclaringType().getQualifiedName()
                     + "#" + wrapperMethod.getSimpleName());
@@ -208,6 +223,11 @@ public class ClientUseProcessor extends AbstractProcessor<CtElement> {
                 .anyMatch(annotation -> "ApiCallbackWrapper".equals(annotation.getAnnotationType().getSimpleName()));
     }
 
+    private boolean isApiImplementation(CtMethod<?> method) {
+        return method.getAnnotations().stream()
+                .anyMatch(annotation -> "ApiImplementation".equals(annotation.getAnnotationType().getSimpleName()));
+    }
+
     private boolean isApiTypeConsumer(CtMethod<?> method) {
         return method.getAnnotations().stream()
                 .anyMatch(annotation -> "ApiTypeConsumer".equals(annotation.getAnnotationType().getSimpleName()));
@@ -226,6 +246,7 @@ public class ClientUseProcessor extends AbstractProcessor<CtElement> {
             if (parameterType == null || !isInTargetPackage(parameterType.getQualifiedName())) {
                 continue;
             }
+            recordTargetClientPackage(clientType);
 
             List<CtAnnotation<?>> matchedAnnotations = matchingAnnotations(parameter.getAnnotations());
             for (int annotationIndex = 0; annotationIndex < matchedAnnotations.size(); annotationIndex++) {
@@ -255,6 +276,7 @@ public class ClientUseProcessor extends AbstractProcessor<CtElement> {
 
         CtType<?> clientType = callbackMethod.getDeclaringType();
         Resource clientResource = getClientTypeResource(clientType);
+        recordTargetClientPackage(clientType);
         String apiMethodUri = buildMemberUri(apiMethod.getReference());
         clientResource.addProperty(wocCalls, model.createResource(apiMethodUri));
 
@@ -267,6 +289,32 @@ public class ClientUseProcessor extends AbstractProcessor<CtElement> {
         List<CtAnnotation<?>> returnAnnotations = matchingReturnAnnotations(callbackMethod);
         addMethodConstraints(apiMethod, apiMethodUri, sourceLine, clientResource,
                 parameterAnnotations, returnAnnotations, onCallback, onCallbackReturn);
+    }
+
+    private void addApiImplementation(CtMethod<?> implementationMethod) {
+        List<CtMethod<?>> apiMethods = implementationMethod.getTopDefinitions().stream()
+                .filter(method -> isInTargetPackage(method.getDeclaringType().getQualifiedName()))
+                .toList();
+        if (apiMethods.size() != 1
+                || apiMethods.get(0).getParameters().size() != implementationMethod.getParameters().size()) {
+            return;
+        }
+        CtMethod<?> apiMethod = apiMethods.get(0);
+        CtType<?> clientType = implementationMethod.getDeclaringType();
+        Resource clientResource = getClientTypeResource(clientType);
+        recordTargetClientPackage(clientType);
+        String apiMethodUri = buildMemberUri(apiMethod.getReference());
+        int sourceLine = implementationMethod.getPosition().isValidPosition()
+                ? implementationMethod.getPosition().getLine() : -1;
+
+        List<List<CtAnnotation<?>>> implementationParameterAnnotations = new ArrayList<>();
+        for (CtParameter<?> parameter : implementationMethod.getParameters()) {
+            implementationParameterAnnotations.add(matchingAnnotations(parameter.getAnnotations()));
+        }
+        List<CtAnnotation<?>> implementationReturnAnnotations = matchingReturnAnnotations(implementationMethod);
+        addMethodConstraints(apiMethod, apiMethodUri, sourceLine, clientResource,
+                implementationParameterAnnotations, implementationReturnAnnotations,
+                onCallback, onCallbackReturn);
     }
 
     private boolean isInTargetPackage(CtExecutableReference<?> executableReference) {
@@ -282,6 +330,17 @@ public class ClientUseProcessor extends AbstractProcessor<CtElement> {
         if (ctPackage != null && !ctPackage.getQualifiedName().isEmpty()) {
             String packageName = ctPackage.getQualifiedName();
             clientPackages.add(packageName);
+        }
+    }
+
+    private void recordTargetClientPackage(CtType<?> clientType) {
+        recordClientPackage(clientType);
+        CtPackage ctPackage = clientType.getPackage();
+        if (ctPackage == null) {
+            ctPackage = clientType.getParent(CtPackage.class);
+        }
+        if (ctPackage != null && !ctPackage.getQualifiedName().isEmpty()) {
+            targetClientPackages.add(ctPackage.getQualifiedName());
         }
     }
 

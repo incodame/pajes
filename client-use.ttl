@@ -14,7 +14,7 @@ icodm:org.incodame.pajes.apiref.JavaPatchToRdf
 
 icodm:org.incodame.pajes.client.ClientUseToRdf
         a                 owl:Class , woc:Class;
-        woc:calls         icodm:org.apache.jena.rdf.model.RDFWriterI_setErrorHandler_c0f56414e037_stable , icodm:org.apache.jena.rdf.model.Model_getWriter_ac75d15ad65c_stable , icodm:org.apache.jena.rdf.model.RDFWriterI_write_fe79389f5e2c_stable , icodm:org.apache.jena.rdf.model.RDFWriterI_setProperty_ac5f47bf80b3_stable , icodm:org.apache.jena.rdf.model.Model_write_2031d85c99f0_stable , icodm:org.apache.jena.rdf.model.Model_size_fe3e41004f80_stable , icodm:org.apache.jena.rdf.model.RDFWriterI_write_8ba88eb3a510_stable;
+        woc:calls         icodm:org.apache.jena.rdf.model.RDFWriterI_setErrorHandler_c0f56414e037_stable , icodm:org.apache.jena.rdf.model.Model_getWriter_ac75d15ad65c_stable , icodm:org.apache.jena.rdf.model.RDFWriterI_write_fe79389f5e2c_stable , icodm:org.apache.jena.rdf.model.Model_write_2031d85c99f0_stable , icodm:org.apache.jena.rdf.model.Model_size_fe3e41004f80_stable , icodm:org.apache.jena.rdf.model.RDFWriterI_write_8ba88eb3a510_stable;
         woc:implements    icodm:org.apache.jena.rdf.model.RDFWriterI;
         icodm:applBranch  "main" .
 
@@ -27,7 +27,7 @@ icodm:org.apache.jena.rdf.model
 
 icodm:org.incodame.pajes
         a                   icodm:JavaModule;
-        icodm:hasSubModule  icodm:org.incodame.pajes.client , icodm:org.incodame.pajes.apiref .
+        icodm:hasSubModule  icodm:org.incodame.pajes.outputApi , icodm:org.incodame.pajes.client , icodm:org.incodame.pajes.apiref .
 
 icodm:org.incodame.pajes.apiref.CodeOntologyReporter
         a                 woc:Class , owl:Class;
@@ -53,3 +53,6 @@ icodm:org.incodame.pajes.client.ClientUseProcessor
         a                 owl:Class , woc:Class;
         woc:calls         icodm:org.apache.jena.rdf.model.Model_createTypedLiteral_b5b5addb4063_stable , icodm:org.apache.jena.rdf.model.Resource_getURI_e3505f9e6e8c_stable , icodm:org.apache.jena.rdf.model.Model_createResource_08dd8f5d5f48_stable , icodm:org.apache.jena.rdf.model.ModelCon_createProperty_e04c9b186dd9_stable , icodm:org.apache.jena.rdf.model.Model_setNsPrefix_bea38db0530e_stable , icodm:org.apache.jena.rdf.model.Resource_addProperty_877b2aa90db3_stable , icodm:org.apache.jena.rdf.model.ModelCon_createLiteral_e54e5a192773_stable , icodm:org.apache.jena.rdf.model.ModelFactory_createDefaultModel_8fa10a9fce3f_stable , icodm:org.apache.jena.rdf.model.Resource_addProperty_dd51bdb9c2e3_stable , icodm:org.apache.jena.rdf.model.Model_createList_690c5e31c73e_stable;
         icodm:applBranch  "main" .
+
+icodm:org.incodame.pajes.outputApi
+        a       woc:Package , icodm:JavaSubModule .
