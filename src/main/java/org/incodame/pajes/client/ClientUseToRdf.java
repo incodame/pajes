@@ -18,8 +18,11 @@ import java.io.OutputStream;
 import java.io.PrintStream;
 import java.io.Writer;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -74,7 +77,7 @@ public class ClientUseToRdf implements RDFWriterI, RdfGenerator {
 
     @ApiImplementation
     @Override
-    public int generateRdf(Path outputFilePath, Model model, @ApiExpectedFormat(format = "timestamp") String timestamp) throws IOException {
+    public int generateRdf(Path outputFilePath, Model model, @ApiExpectedFormat(format = "aggregate('@', timestamp)") String timestamp) throws IOException {
         try (Writer out = Files.newBufferedWriter(outputFilePath, StandardCharsets.UTF_8)) {
             writeModel(out, model, "TURTLE");
         }
@@ -136,7 +139,7 @@ public class ClientUseToRdf implements RDFWriterI, RdfGenerator {
         
         Path configurationFile = Paths.get("pajes-config.yaml");
         Path settingsXmlPath = resolveMavenSettings(configurationFile);
-        Map<String, List<String>> clientAnnotations = resolveClientAnnotations(configurationFile);
+        ClientUseConfiguration clientUseConfiguration = resolveClientUseConfiguration(configurationFile);
         if (settingsXmlPath != null) {
             log.println("Resolving maven classpath using " + settingsXmlPath);
         }
@@ -152,7 +155,9 @@ public class ClientUseToRdf implements RDFWriterI, RdfGenerator {
         launcher.getEnvironment().setComplianceLevel(17);
         launcher.getEnvironment().setNoClasspath(false);
 
-        ClientUseProcessor rdfProcessor = new ClientUseProcessor(targetPackage, branch, clientAnnotations);
+        ClientUseProcessor rdfProcessor = new ClientUseProcessor(targetPackage, branch,
+                clientUseConfiguration.clientAnnotations(), clientUseConfiguration.semanticProperties(),
+                clientUseConfiguration.semanticPrefixes(), clientUseConfiguration.semanticTerms());
         launcher.addProcessor(rdfProcessor);
         
         // Exécution de l'analyse Spoon
@@ -228,19 +233,24 @@ public class ClientUseToRdf implements RDFWriterI, RdfGenerator {
     }
 
     static Map<String, List<String>> resolveClientAnnotations(Path configurationFile) throws IOException {
+        return resolveClientUseConfiguration(configurationFile).clientAnnotations();
+    }
+
+    static ClientUseConfiguration resolveClientUseConfiguration(Path configurationFile) throws IOException {
         if (!Files.exists(configurationFile)) {
-            return Map.of();
+            return new ClientUseConfiguration(Map.of(), Map.of(), Map.of(), Map.of());
         }
         JsonNode configuration = new ObjectMapper(new YAMLFactory()).readTree(configurationFile.toFile());
         JsonNode annotations = configuration == null ? null : configuration.get("client-annotations");
         if (annotations == null || annotations.isNull()) {
-            return Map.of();
+            annotations = new ObjectMapper().createArrayNode();
         }
         if (!annotations.isArray()) {
             throw new IOException("client-annotations must be a YAML list in " + configurationFile);
         }
 
         Map<String, List<String>> result = new LinkedHashMap<>();
+        Map<String, Set<String>> semanticProperties = new LinkedHashMap<>();
         for (int index = 0; index < annotations.size(); index++) {
             JsonNode annotation = annotations.get(index);
             if (!annotation.isObject() || !annotation.path("name").isTextual()
@@ -262,8 +272,101 @@ public class ClientUseToRdf implements RDFWriterI, RdfGenerator {
             if (result.putIfAbsent(name, List.copyOf(properties)) != null) {
                 throw new IOException("Duplicate client annotation name in " + configurationFile + ": " + name);
             }
+            JsonNode configuredSemanticProperties = annotation.get("semantic-properties");
+            if (configuredSemanticProperties != null && !configuredSemanticProperties.isNull()) {
+                if (!configuredSemanticProperties.isArray()) {
+                    throw new IOException("semantic-properties must be a YAML list in " + configurationFile
+                            + " (entry " + index + ")");
+                }
+                Set<String> selectedProperties = new LinkedHashSet<>();
+                for (JsonNode property : configuredSemanticProperties) {
+                    if (!property.isTextual() || property.asText().trim().isEmpty()
+                            || !properties.contains(property.asText().trim())) {
+                        throw new IOException("semantic-properties must list configured annotation properties in "
+                                + configurationFile + " (entry " + index + ")");
+                    }
+                    selectedProperties.add(property.asText().trim());
+                }
+                if (!selectedProperties.isEmpty()) {
+                    semanticProperties.put(name, Collections.unmodifiableSet(selectedProperties));
+                }
+            }
         }
-        return Map.copyOf(result);
+
+        JsonNode semanticMappings = configuration == null ? null : configuration.get("semantic-mappings");
+        Map<String, String> semanticPrefixes = readStringMap(
+                semanticMappings == null ? null : semanticMappings.get("prefixes"),
+                "semantic-mappings.prefixes", configurationFile);
+        Map<String, String> semanticTerms = readStringMap(
+                semanticMappings == null ? null : semanticMappings.get("terms"),
+                "semantic-mappings.terms", configurationFile);
+        for (Map.Entry<String, String> term : semanticTerms.entrySet()) {
+            int separator = term.getValue().indexOf(':');
+            if (separator <= 0 || separator == term.getValue().length() - 1
+                    || !semanticPrefixes.containsKey(term.getValue().substring(0, separator))) {
+                throw new IOException("Semantic mapping for term " + term.getKey()
+                        + " must use a configured prefix in " + configurationFile);
+            }
+        }
+        return new ClientUseConfiguration(
+                Collections.unmodifiableMap(result),
+                Collections.unmodifiableMap(semanticProperties),
+                Collections.unmodifiableMap(semanticPrefixes),
+                Collections.unmodifiableMap(semanticTerms));
+    }
+
+    private static Map<String, String> readStringMap(JsonNode node, String path, Path configurationFile)
+            throws IOException {
+        if (node == null || node.isNull()) {
+            return Map.of();
+        }
+        if (!node.isObject()) {
+            throw new IOException(path + " must be a YAML mapping in " + configurationFile);
+        }
+        Map<String, String> result = new LinkedHashMap<>();
+        Iterator<Map.Entry<String, JsonNode>> fields = node.fields();
+        while (fields.hasNext()) {
+            Map.Entry<String, JsonNode> entry = fields.next();
+            if (entry.getKey().trim().isEmpty() || !entry.getValue().isTextual()
+                    || entry.getValue().asText().trim().isEmpty()) {
+                throw new IOException(path + " keys and values must be non-empty strings in "
+                        + configurationFile);
+            }
+            result.put(entry.getKey().trim(), entry.getValue().asText().trim());
+        }
+        return result;
+    }
+
+    static final class ClientUseConfiguration {
+        private final Map<String, List<String>> clientAnnotations;
+        private final Map<String, Set<String>> semanticProperties;
+        private final Map<String, String> semanticPrefixes;
+        private final Map<String, String> semanticTerms;
+
+        ClientUseConfiguration(Map<String, List<String>> clientAnnotations,
+                Map<String, Set<String>> semanticProperties, Map<String, String> semanticPrefixes,
+                Map<String, String> semanticTerms) {
+            this.clientAnnotations = clientAnnotations;
+            this.semanticProperties = semanticProperties;
+            this.semanticPrefixes = semanticPrefixes;
+            this.semanticTerms = semanticTerms;
+        }
+
+        Map<String, List<String>> clientAnnotations() {
+            return clientAnnotations;
+        }
+
+        Map<String, Set<String>> semanticProperties() {
+            return semanticProperties;
+        }
+
+        Map<String, String> semanticPrefixes() {
+            return semanticPrefixes;
+        }
+
+        Map<String, String> semanticTerms() {
+            return semanticTerms;
+        }
     }
 
     private static String resolveGroupId(MavenLauncher launcher) {

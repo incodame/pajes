@@ -1,0 +1,36 @@
+@prefix icodm: <https://github.com/Incodam/> .
+@prefix rdf:   <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix woc:   <http://webofcode.org> .
+@prefix xsd:   <http://www.w3.org/2001/XMLSchema#> .
+
+icodm:org.incodame.pajes.client.ClientUseRdfMetadata
+        icodm:applBranch  "main" .
+
+icodm:org.incodame.pajes.outputApi.RdfGenerator_generateRdf_f0a6ed893a3c_stable_constraint_77_3_a
+        rdf:type                    woc:Annotation , icodm:JavaConstraintAnnotation;
+        rdfs:label                  "ApiExpectedFormat";
+        icodm:annotationProperties  ( icodm:org.incodame.pajes.outputApi.RdfGenerator_generateRdf_f0a6ed893a3c_stable_constraint_77_3_a_ef_select icodm:org.incodame.pajes.outputApi.RdfGenerator_generateRdf_f0a6ed893a3c_stable_constraint_77_3_a_ef_format ) .
+
+icodm:org.incodame.pajes.client.ClientUseToRdf
+        icodm:applBranch  "main";
+        icodm:onCallback  icodm:org.incodame.pajes.outputApi.RdfGenerator_generateRdf_f0a6ed893a3c_stable_constraint_set_77 .
+
+icodm:org.incodame.pajes.outputApi.RdfGenerator_generateRdf_f0a6ed893a3c_stable_constraint_77_3_a_ef_format
+        rdf:type    icodm:CoAProperty;
+        rdfs:label  "format";
+        rdf:value   "aggregate('@', timestamp)";
+        icodm:semanticallyRefersTo ( xsd:dateTime ) .
+
+icodm:org.incodame.pajes.outputApi.RdfGenerator_generateRdf_f0a6ed893a3c_stable_constraint_set_77
+        rdf:type             icodm:ApiClientConstraintSet;
+        icodm:hasContraints  ( icodm:org.incodame.pajes.outputApi.RdfGenerator_generateRdf_f0a6ed893a3c_stable_constraint_77_3 ) .
+
+icodm:org.incodame.pajes.outputApi.RdfGenerator_generateRdf_f0a6ed893a3c_stable_constraint_77_3_a_ef_select
+        rdf:type    icodm:CoAProperty;
+        rdf:value   "";
+        rdfs:label  "select" .
+
+icodm:org.incodame.pajes.outputApi.RdfGenerator_generateRdf_f0a6ed893a3c_stable_constraint_77_3
+        rdf:type           icodm:ApiClientConstraint;
+        icodm:annotations  icodm:org.incodame.pajes.outputApi.RdfGenerator_generateRdf_f0a6ed893a3c_stable_constraint_77_3_a .

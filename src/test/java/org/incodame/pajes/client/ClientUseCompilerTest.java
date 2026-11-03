@@ -306,6 +306,33 @@ class ClientUseCompilerTest {
         }
 
         @Test
+        void readsConfiguredSemanticPropertiesAndMappings(@TempDir Path tempDir) throws Exception {
+                Path configuration = tempDir.resolve("pajes-config.yaml");
+                Files.writeString(configuration,
+                                "client-annotations:\n"
+                                                + "  - name: ApiExpectedFormat\n"
+                                                + "    properties: [select, format]\n"
+                                                + "    semantic-properties: [format]\n"
+                                                + "semantic-mappings:\n"
+                                                + "  prefixes:\n"
+                                                + "    xsd: 'http://www.w3.org/2001/XMLSchema#'\n"
+                                                + "  terms:\n"
+                                                + "    timestamp: xsd:dateTime\n"
+                                                + "    isoDate: xsd:date\n");
+
+                ClientUseToRdf.ClientUseConfiguration configurationData =
+                                ClientUseToRdf.resolveClientUseConfiguration(configuration);
+                assertEquals(Map.of("ApiExpectedFormat", List.of("select", "format")),
+                                configurationData.clientAnnotations());
+                assertEquals(Map.of("ApiExpectedFormat", java.util.Set.of("format")),
+                                configurationData.semanticProperties());
+                assertEquals(Map.of("xsd", "http://www.w3.org/2001/XMLSchema#"),
+                                configurationData.semanticPrefixes());
+                assertEquals(Map.of("timestamp", "xsd:dateTime", "isoDate", "xsd:date"),
+                                configurationData.semanticTerms());
+        }
+
+        @Test
         void rejectsMalformedClientAnnotationConfiguration(@TempDir Path tempDir) throws Exception {
                 Path configuration = tempDir.resolve("pajes-config.yaml");
                 Files.writeString(configuration, "client-annotations: {}\n");
@@ -768,7 +795,11 @@ class ClientUseCompilerTest {
         launcher.addInputResource(sourceRoot.resolve(
                 "org/incodame/pajes/annotations/ApiExpectedFormat.java").toString());
         ClientUseProcessor processor = new ClientUseProcessor("org.incodame.pajes.outputApi", "main",
-                Map.of("ApiExpectedFormat", List.of("select", "format")));
+                Map.of("ApiExpectedFormat", List.of("select", "format")),
+                Map.of("ApiExpectedFormat", java.util.Set.of("format")),
+                Map.of("xsd", "http://www.w3.org/2001/XMLSchema#",
+                        "time", "http://www.w3.org/2006/time#"),
+                Map.of("timestamp", "xsd:dateTime"));
         launcher.addProcessor(processor);
         launcher.run();
 
@@ -816,8 +847,89 @@ class ClientUseCompilerTest {
                 .map(property -> property.getProperty(
                         constraints.createProperty("http://www.w3.org/2000/01/rdf-schema#label")).getString())
                 .toList());
-        assertEquals(List.of("", "timestamp"), propertyResources.stream()
+        assertEquals(List.of("", "aggregate('@', timestamp)"), propertyResources.stream()
                 .map(property -> property.getProperty(RDF.value).getString())
+                .toList());
+        org.apache.jena.rdf.model.Resource formatProperty = propertyResources.get(1);
+        org.apache.jena.rdf.model.RDFList semanticReferences = formatProperty.getProperty(
+                constraints.createProperty(namespace + "semanticallyRefersTo"))
+                .getResource().as(org.apache.jena.rdf.model.RDFList.class);
+        assertEquals(List.of("http://www.w3.org/2001/XMLSchema#dateTime"), semanticReferences.asJavaList().stream()
+                .map(org.apache.jena.rdf.model.RDFNode::asResource)
+                .map(org.apache.jena.rdf.model.Resource::getURI)
+                .toList());
+        assertTrue(constraints.getNsPrefixMap().containsKey("xsd"));
+        assertFalse(constraints.getNsPrefixMap().containsKey("time"),
+                "Unused configured semantic prefixes should not be serialized");
+    }
+
+    @Test
+    void mapsAllTermsOnlyOnConfiguredAnnotationProperties(@TempDir Path tempDir) throws Exception {
+        Path apiSource = tempDir.resolve("src/api/RdfGenerator.java");
+        Path implementationSource = tempDir.resolve("src/client/Generator.java");
+        Path annotations = tempDir.resolve("src/client/Annotations.java");
+        Files.createDirectories(apiSource.getParent());
+        Files.createDirectories(implementationSource.getParent());
+        Files.writeString(apiSource,
+                "package api;\n"
+                        + "public interface RdfGenerator { void generate(String value); }\n");
+        Files.writeString(annotations,
+                "package client;\n"
+                        + "import java.lang.annotation.*;\n"
+                        + "@Target(ElementType.METHOD) @interface ApiImplementation { }\n"
+                        + "@Target(ElementType.PARAMETER) @interface ApiExpectedFormat {\n"
+                        + "    String select() default \"\"; String format();\n"
+                        + "}\n");
+        Files.writeString(implementationSource,
+                "package client;\n"
+                        + "public class Generator implements api.RdfGenerator {\n"
+                        + "    @ApiImplementation\n"
+                        + "    public void generate(@ApiExpectedFormat(select = \"timestamp\", "
+                        + "format = \"aggregate('@', timestamp, isoDate)\") String value) { }\n"
+                        + "}\n");
+
+        ClientUseProcessor processor = new ClientUseProcessor("api", "main",
+                Map.of("ApiExpectedFormat", List.of("select", "format")),
+                Map.of("ApiExpectedFormat", java.util.Set.of("format")),
+                Map.of("xsd", "http://www.w3.org/2001/XMLSchema#"),
+                Map.of("timestamp", "xsd:dateTime", "isoDate", "xsd:date"));
+        Launcher launcher = new Launcher();
+        launcher.getEnvironment().setComplianceLevel(17);
+        launcher.getEnvironment().setNoClasspath(true);
+        launcher.addInputResource(apiSource.toString());
+        launcher.addInputResource(annotations.toString());
+        launcher.addInputResource(implementationSource.toString());
+        launcher.addProcessor(processor);
+        launcher.run();
+
+        String namespace = "https://github.com/Incodam/";
+        org.apache.jena.rdf.model.Model constraints = processor.getConstraintModel();
+        org.apache.jena.rdf.model.Resource client = constraints.getResource(namespace + "client.Generator");
+        org.apache.jena.rdf.model.Resource constraintSet = client.getProperty(
+                constraints.createProperty(namespace + "onCallback")).getResource();
+        org.apache.jena.rdf.model.Resource constraint = constraintSet.getProperty(
+                constraints.createProperty(namespace + "hasContraints")).getResource()
+                .as(org.apache.jena.rdf.model.RDFList.class).getHead().asResource();
+        org.apache.jena.rdf.model.Resource annotation = constraint.getProperty(
+                constraints.createProperty(namespace + "annotations")).getResource();
+        org.apache.jena.rdf.model.RDFList properties = annotation.getProperty(
+                constraints.createProperty(namespace + "annotationProperties"))
+                .getResource().as(org.apache.jena.rdf.model.RDFList.class);
+        List<org.apache.jena.rdf.model.Resource> propertyResources = properties.asJavaList().stream()
+                .map(org.apache.jena.rdf.model.RDFNode::asResource)
+                .toList();
+
+        assertFalse(propertyResources.get(0).hasProperty(
+                constraints.createProperty(namespace + "semanticallyRefersTo")),
+                "The select property must not receive semantic mappings");
+        org.apache.jena.rdf.model.RDFList semanticReferences = propertyResources.get(1).getProperty(
+                constraints.createProperty(namespace + "semanticallyRefersTo"))
+                .getResource().as(org.apache.jena.rdf.model.RDFList.class);
+        assertEquals(List.of(
+                "http://www.w3.org/2001/XMLSchema#dateTime",
+                "http://www.w3.org/2001/XMLSchema#date"), semanticReferences.asJavaList().stream()
+                .map(org.apache.jena.rdf.model.RDFNode::asResource)
+                .map(org.apache.jena.rdf.model.Resource::getURI)
                 .toList());
     }
 

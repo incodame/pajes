@@ -31,7 +31,7 @@ class PajesOntologyTest {
                 "hasSubModule", "hasDependency", "targetPackage", "isNewConstructor",
                 "isPatchOfConstructor", "isNewMethod", "isPatchOfMethod", "isDeleted",
                 "onMethodCall", "onMethodReturn", "onCallback", "onCallbackReturn", "onTypeUse",
-                "hasContraints", "annotations", "annotationProperties", "methodCallContract",
+                "hasContraints", "annotations", "annotationProperties", "semanticallyRefersTo", "methodCallContract",
                 "methodReturnContract", "callbackContract", "callbackReturnContract", "typeUseContract",
                 "includesCondition", "conditionProperties"));
         assertDeclarations(ontology, OWL.DatatypeProperty, List.of(

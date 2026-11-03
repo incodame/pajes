@@ -207,6 +207,13 @@ icodm:annotationProperties
     rdfs:domain icodm:JavaConstraintAnnotation ;
     rdfs:range rdf:List .
 
+icodm:semanticallyRefersTo
+    a owl:ObjectProperty ;
+    rdfs:label "semantically refers to"@en ;
+    rdfs:comment "Links a selected annotation property value to the RDF resources denoted by configured semantic terms."@en ;
+    rdfs:domain icodm:CoAProperty ;
+    rdfs:range rdf:List .
+
 woc:hasReturnType
     a owl:ObjectProperty ;
     rdfs:label "has return type"@en ;

@@ -14,6 +14,8 @@ import java.util.List;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import spoon.processing.AbstractProcessor;
 import spoon.reflect.code.CtExpression;
@@ -42,8 +44,12 @@ public class ClientUseProcessor extends AbstractProcessor<CtElement> {
     private final String targetPackage;
     private final String branch;
     private final Map<String, List<String>> clientAnnotations;
+    private final Map<String, Set<String>> semanticProperties;
+    private final Map<String, String> semanticPrefixes;
+    private final Map<String, String> semanticTerms;
     private final Set<String> clientPackages = new LinkedHashSet<>();
     private final Set<String> targetClientPackages = new LinkedHashSet<>();
+    private static final Pattern IDENTIFIER = Pattern.compile("[\\p{L}_][\\p{L}\\p{N}_]*");
 
     // Initialisation du modèle Jena et des préfixes graphiques
     private final Model model = ModelFactory.createDefaultModel();
@@ -76,9 +82,16 @@ public class ClientUseProcessor extends AbstractProcessor<CtElement> {
     }
 
     public ClientUseProcessor(String targetPackage, String branch, Map<String, List<String>> clientAnnotations) {
+        this(targetPackage, branch, clientAnnotations, Map.of(), Map.of(), Map.of());
+    }
+
+    public ClientUseProcessor(String targetPackage, String branch, Map<String, List<String>> clientAnnotations,
+            Map<String, Set<String>> semanticProperties, Map<String, String> semanticPrefixes,
+            Map<String, String> semanticTerms) {
         if (targetPackage == null || targetPackage.trim().isEmpty()
-                || branch == null || branch.trim().isEmpty() || clientAnnotations == null) {
-            throw new IllegalArgumentException("Target package, branch, and client annotations must be valid");
+                || branch == null || branch.trim().isEmpty() || clientAnnotations == null
+                || semanticProperties == null || semanticPrefixes == null || semanticTerms == null) {
+            throw new IllegalArgumentException("Target package, branch, and annotation configuration must be valid");
         }
         this.targetPackage = targetPackage;
         this.branch = branch;
@@ -91,6 +104,12 @@ public class ClientUseProcessor extends AbstractProcessor<CtElement> {
             annotationCopy.put(name, List.copyOf(properties));
         });
         this.clientAnnotations = Collections.unmodifiableMap(annotationCopy);
+        Map<String, Set<String>> semanticPropertyCopy = new LinkedHashMap<>();
+        semanticProperties.forEach((name, properties) -> semanticPropertyCopy.put(name,
+                Collections.unmodifiableSet(new LinkedHashSet<>(properties))));
+        this.semanticProperties = Collections.unmodifiableMap(semanticPropertyCopy);
+        this.semanticPrefixes = Collections.unmodifiableMap(new LinkedHashMap<>(semanticPrefixes));
+        this.semanticTerms = Collections.unmodifiableMap(new LinkedHashMap<>(semanticTerms));
 
         // Configuration des préfixes pour un affichage propre en Turtle (.ttl)
         model.setNsPrefix("icodm", ICODM);
@@ -525,6 +544,11 @@ public class ClientUseProcessor extends AbstractProcessor<CtElement> {
                     .addProperty(RDF.type, constraintModel.createResource(ICODM + "CoAProperty"))
                     .addProperty(rdfsLabel, propertyName)
                     .addProperty(rdfValue, toRdfValue(value));
+            List<Resource> semanticReferences = semanticReferences(annotation, propertyName, value);
+            if (!semanticReferences.isEmpty()) {
+                propertyResource.addProperty(constraintModel.createProperty(ICODM + "semanticallyRefersTo"),
+                        constraintModel.createList(semanticReferences.iterator()));
+            }
             propertyResources.add(propertyResource);
         }
         if (!propertyResources.isEmpty()) {
@@ -532,6 +556,42 @@ public class ClientUseProcessor extends AbstractProcessor<CtElement> {
                     constraintModel.createList(propertyResources.iterator()));
         }
         return constraint;
+    }
+
+    private List<Resource> semanticReferences(CtAnnotation<?> annotation, String propertyName,
+            CtExpression<?> value) {
+        Set<String> selectedProperties = semanticProperties.get(annotation.getAnnotationType().getQualifiedName());
+        if (selectedProperties == null) {
+            selectedProperties = semanticProperties.get(annotation.getAnnotationType().getSimpleName());
+        }
+        if (selectedProperties == null || !selectedProperties.contains(propertyName)
+                || !(value instanceof CtLiteral<?>)) {
+            return List.of();
+        }
+        Object literalValue = ((CtLiteral<?>) value).getValue();
+        if (!(literalValue instanceof String)) {
+            return List.of();
+        }
+
+        List<Resource> references = new ArrayList<>();
+        Set<String> seenTerms = new LinkedHashSet<>();
+        Matcher matcher = IDENTIFIER.matcher((String) literalValue);
+        while (matcher.find()) {
+            String term = matcher.group();
+            String mappedCurie = semanticTerms.get(term);
+            if (mappedCurie != null && seenTerms.add(term)) {
+                int separator = mappedCurie.indexOf(':');
+                String prefix = mappedCurie.substring(0, separator);
+                String localName = mappedCurie.substring(separator + 1);
+                String namespace = semanticPrefixes.get(prefix);
+                if (namespace == null) {
+                    throw new IllegalStateException("No namespace configured for semantic prefix " + prefix);
+                }
+                constraintModel.setNsPrefix(prefix, namespace);
+                references.add(constraintModel.createResource(namespace + localName));
+            }
+        }
+        return references;
     }
 
     private CtExpression<?> annotationPropertyValue(CtAnnotation<?> annotation, String propertyName) {

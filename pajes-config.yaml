@@ -11,10 +11,12 @@ client-annotations:
     properties:
       - select
       - format
+    semantic-properties:
+      - format
 semantic-mappings:
   prefixes:
-    xsd: "http://w3.org"
-    time: "http://w3.org"
+    xsd: "http://www.w3.org/2001/XMLSchema#"
+    time: "http://www.w3.org/2006/time#"
   terms:
     # If the Java annotation says format="isoDate", map to xsd:date
     "isoDate": "xsd:date"
