@@ -1105,7 +1105,7 @@ woc:isArrayOf  rdf:type  owl:ObjectProperty;
         rdfs:label    "is array of"@en;
         rdfs:range    woc:Type .
 
-:       rdf:type      owl:Ontology;
+woc:    rdf:type      owl:Ontology;
         rdfs:comment  "An ontology that represents object-oriented programming languages"@en;
         rdfs:label    "CodeOntology"@en .
 
