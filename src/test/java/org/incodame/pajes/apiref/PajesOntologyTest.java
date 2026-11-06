@@ -43,11 +43,14 @@ class PajesOntologyTest {
                 .hasProperty(RDFS.subClassOf, ontology.getResource(ICODM + "CoProperty")));
         assertTrue(ontology.getResource(ICODM + "CoAProperty")
                 .hasProperty(RDFS.subClassOf, ontology.getResource(ICODM + "CoProperty")));
-        assertContractProperty(ontology, "methodCallContract", ontology.getResource("http://webofcode.orgMethod"));
-        assertContractProperty(ontology, "methodReturnContract", ontology.getResource("http://webofcode.orgMethod"));
-        assertContractProperty(ontology, "callbackContract", ontology.getResource("http://webofcode.orgMethod"));
+        assertContractProperty(ontology, "methodCallContract",
+                ontology.getResource("http://rdf.webofcode.org/woc/Method"));
+        assertContractProperty(ontology, "methodReturnContract",
+                ontology.getResource("http://rdf.webofcode.org/woc/Method"));
+        assertContractProperty(ontology, "callbackContract",
+                ontology.getResource("http://rdf.webofcode.org/woc/Method"));
         assertContractProperty(ontology, "callbackReturnContract",
-                ontology.getResource("http://webofcode.orgMethod"));
+                ontology.getResource("http://rdf.webofcode.org/woc/Method"));
         assertContractProperty(ontology, "typeUseContract", OWL.Class);
     }
 

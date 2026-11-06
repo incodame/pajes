@@ -2,7 +2,7 @@
 @prefix owl:   <http://www.w3.org/2002/07/owl#> .
 @prefix rdf:   <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 @prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
-@prefix woc:   <http://webofcode.org> .
+@prefix woc:   <http://rdf.webofcode.org/woc/> .
 
 icodm:org.incodame.paragraph.sample.webapp.demo.Parameter_setLoc_f039e92d30a6_patched
         rdf:type           woc:Method;

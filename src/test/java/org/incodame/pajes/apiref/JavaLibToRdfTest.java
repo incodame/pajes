@@ -29,7 +29,7 @@ import org.junit.jupiter.api.io.TempDir;
 class JavaLibToRdfTest {
 
     private static boolean hasNonEmptyParameterList(Resource member) {
-        Property parameters = member.getModel().createProperty("http://webofcode.orgparameters");
+        Property parameters = member.getModel().createProperty("http://rdf.webofcode.org/woc/parameters");
         return member.hasProperty(parameters)
                 && !member.getProperty(parameters).getResource().as(RDFList.class).isEmpty();
     }
@@ -98,11 +98,11 @@ class JavaLibToRdfTest {
             }
 
             Resource method = model.listResourcesWithProperty(
-                    model.createProperty("http://webofcode.orghasSimpleName"), "setLoc")
+                    model.createProperty("http://rdf.webofcode.org/woc/hasSimpleName"), "setLoc")
                     .nextResource();
             assertEquals("Sets the information how to retrieve a parameter's value.",
                     method.getProperty(model.createProperty("https://github.com/Incodam/methodJavadoc")).getString());
-            Resource parameter = method.getProperty(model.createProperty("http://webofcode.orgparameters"))
+            Resource parameter = method.getProperty(model.createProperty("http://rdf.webofcode.org/woc/parameters"))
                     .getResource().as(RDFList.class).getHead().asResource();
             assertEquals("loc", parameter.getProperty(
                     model.createProperty("http://www.w3.org/2000/01/rdf-schema#label")).getString());
@@ -170,25 +170,25 @@ class JavaLibToRdfTest {
 
             String namespace = "https://github.com/Incodam/";
             Resource contract = model.getResource(namespace + "demo.ExampleContract");
-            assertTrue(contract.hasProperty(RDF.type, model.getResource("http://webofcode.orgClass")));
-            assertTrue(contract.hasProperty(RDF.type, model.getResource("http://webofcode.orgInterface")));
+            assertTrue(contract.hasProperty(RDF.type, model.getResource("http://rdf.webofcode.org/woc/Class")));
+            assertTrue(contract.hasProperty(RDF.type, model.getResource("http://rdf.webofcode.org/woc/Interface")));
 
-            Property hasMethod = model.createProperty("http://webofcode.orghasMethod");
-            Property simpleName = model.createProperty("http://webofcode.orghasSimpleName");
-            Property hasReturnType = model.createProperty("http://webofcode.orghasReturnType");
-            Resource publicModifier = model.getResource("http://webofcode.orgPublic");
+            Property hasMethod = model.createProperty("http://rdf.webofcode.org/woc/hasMethod");
+            Property simpleName = model.createProperty("http://rdf.webofcode.org/woc/hasSimpleName");
+            Property hasReturnType = model.createProperty("http://rdf.webofcode.org/woc/hasReturnType");
+            Resource publicModifier = model.getResource("http://rdf.webofcode.org/woc/Public");
             List<Resource> methods = contract.listProperties(hasMethod).toList().stream()
                     .map(statement -> statement.getResource())
                     .collect(Collectors.toList());
             assertEquals(2, methods.size(), "Both abstract and default interface methods should be emitted");
             assertTrue(methods.stream().allMatch(method ->
-                    method.hasProperty(model.createProperty("http://webofcode.orghasModifier"), publicModifier)));
+                    method.hasProperty(model.createProperty("http://rdf.webofcode.org/woc/hasModifier"), publicModifier)));
             assertTrue(methods.stream().anyMatch(method -> method.hasProperty(simpleName, "getName")
                     && method.hasProperty(hasReturnType,
                             model.getResource(namespace + "java.lang.String"))));
             assertTrue(methods.stream().anyMatch(method -> method.hasProperty(simpleName, "count")
                     && method.hasProperty(hasReturnType, model.getResource(namespace + "int"))));
-            assertFalse(contract.hasProperty(model.createProperty("http://webofcode.orghasConstructor")),
+            assertFalse(contract.hasProperty(model.createProperty("http://rdf.webofcode.org/woc/hasConstructor")),
                     "Interfaces should not have generated constructors");
         } finally {
             if (previousOutputDirectory == null) {
@@ -226,10 +226,10 @@ class JavaLibToRdfTest {
                 assertTrue(model.size() > 0, "Reporter should generate at least one RDF record");
 
                 String namespace = "https://github.com/Incodam/";
-                Resource methodType = model.getResource("http://webofcode.orgMethod");
-                Resource constructorType = model.getResource("http://webofcode.orgConstructor");
-                Resource classType = model.getResource("http://webofcode.orgClass");
-                Resource fieldType = model.getResource("http://webofcode.orgField");
+                Resource methodType = model.getResource("http://rdf.webofcode.org/woc/Method");
+                Resource constructorType = model.getResource("http://rdf.webofcode.org/woc/Constructor");
+                Resource classType = model.getResource("http://rdf.webofcode.org/woc/Class");
+                Resource fieldType = model.getResource("http://rdf.webofcode.org/woc/Field");
                 java.util.List<Resource> methods = model.listResourcesWithProperty(RDF.type, methodType).toList();
                 java.util.List<Resource> constructors = model.listResourcesWithProperty(RDF.type, constructorType).toList();
                 java.util.List<Resource> classes = model.listResourcesWithProperty(RDF.type, classType).toList();
@@ -245,9 +245,9 @@ class JavaLibToRdfTest {
                 assertVersion(constructors, applicableFor, version, "constructor");
                 assertVersion(methods, applicableFor, version, "method");
 
-                Property hasReturnType = model.createProperty("http://webofcode.orghasReturnType");
+                Property hasReturnType = model.createProperty("http://rdf.webofcode.org/woc/hasReturnType");
                 Resource owlClass = model.getResource("http://www.w3.org/2002/07/owl#Class");
-                Property simpleName = model.createProperty("http://webofcode.orghasSimpleName");
+                Property simpleName = model.createProperty("http://rdf.webofcode.org/woc/hasSimpleName");
                 assertTrue(methods.stream().allMatch(method -> method.hasProperty(hasReturnType)
                                 && method.getProperty(hasReturnType).getObject().isResource()),
                         "Method return types should be resource-valued hasReturnType properties");
@@ -265,9 +265,9 @@ class JavaLibToRdfTest {
                 assertTrue(constructors.stream().anyMatch(JavaLibToRdfTest::hasNonEmptyParameterList),
                         "Constructor records should contain parameter lists");
 
-                Property parameters = model.createProperty("http://webofcode.orgparameters");
-                Property parameterType = model.createProperty("http://webofcode.orgparameterType");
-                Property parameterIndex = model.createProperty("http://webofcode.orgparameterIndex");
+                Property parameters = model.createProperty("http://rdf.webofcode.org/woc/parameters");
+                Property parameterType = model.createProperty("http://rdf.webofcode.org/woc/parameterType");
+                Property parameterIndex = model.createProperty("http://rdf.webofcode.org/woc/parameterIndex");
                 List<Resource> members = new java.util.ArrayList<>(methods);
                 members.addAll(constructors);
                 List<Resource> parameterResources = members.stream()
@@ -278,7 +278,7 @@ class JavaLibToRdfTest {
                         .collect(Collectors.toList());
                 assertTrue(!parameterResources.isEmpty(), "Parameter records should be generated");
                 assertTrue(parameterResources.stream().allMatch(parameter -> parameter.hasProperty(RDF.type,
-                                model.getResource("http://webofcode.orgParameter"))
+                                model.getResource("http://rdf.webofcode.org/woc/Parameter"))
                                 && parameter.hasProperty(parameterIndex)
                                 && parameter.hasProperty(parameterType)),
                         "Each parameter record should include its type and index");
@@ -295,7 +295,7 @@ class JavaLibToRdfTest {
                 Resource springBootServletInitializer = model.getResource(
                         namespace + "org.springframework.boot.web.servlet.support.SpringBootServletInitializer");
                 Property subClassOf = model.createProperty("http://www.w3.org/2000/01/rdf-schema#subClassOf");
-                assertTrue(servletInitializer.hasProperty(RDF.type, model.getResource("http://webofcode.orgClass")),
+                assertTrue(servletInitializer.hasProperty(RDF.type, model.getResource("http://rdf.webofcode.org/woc/Class")),
                         "Generated class should retain its Web of Code class type");
                 assertTrue(servletInitializer.hasProperty(RDF.type, owlClass),
                         "Generated class should also be declared as an OWL class");

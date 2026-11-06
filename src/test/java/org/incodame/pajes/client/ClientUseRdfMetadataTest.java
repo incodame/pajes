@@ -87,7 +87,7 @@ class ClientUseRdfMetadataTest {
                 java.util.regex.Pattern.quote(ICODM + "org.incodame.pajes_dependency_") + "[0-9a-f]{12}"));
         assertTrue(rootModule.hasProperty(model.createProperty(ICODM + "hasSubModule"), clientModule));
         assertTrue(clientModule.hasProperty(RDF.type, model.getResource(ICODM + "JavaSubModule")));
-        assertTrue(clientModule.hasProperty(RDF.type, model.getResource("http://webofcode.orgPackage")));
+        assertTrue(clientModule.hasProperty(RDF.type, model.getResource("http://rdf.webofcode.org/woc/Package")));
         assertTrue(clientModule.hasProperty(model.createProperty(ICODM + "hasDependency"), expectedDependency));
         assertTrue(dependency.hasProperty(RDF.type, model.getResource(ICODM + "LibraryDependency")));
         assertTrue(dependency.hasProperty(model.createProperty(ICODM + "applBranch"), "main"));

@@ -19,8 +19,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class JavaPatchToRdfTest {
 
         private static List<String> parameterTypes(Resource member) {
-                Property parameters = member.getModel().createProperty("http://webofcode.orgparameters");
-                Property parameterType = member.getModel().createProperty("http://webofcode.orgparameterType");
+                Property parameters = member.getModel().createProperty("http://rdf.webofcode.org/woc/parameters");
+                Property parameterType = member.getModel().createProperty("http://rdf.webofcode.org/woc/parameterType");
                 RDFList list = member.getProperty(parameters).getResource().as(RDFList.class);
                 return list.asJavaList().stream()
                                 .map(node -> node.asResource().getProperty(parameterType).getString())
@@ -44,13 +44,13 @@ class JavaPatchToRdfTest {
 
         Model model = JavaPatchToRdf.buildModelForFile(sourceFile.toString());
 
-        Resource constructorType = model.getResource("http://webofcode.orgConstructor");
+        Resource constructorType = model.getResource("http://rdf.webofcode.org/woc/Constructor");
         List<Resource> constructors = model.listResourcesWithProperty(RDF.type, constructorType).toList();
         assertTrue(constructors.size() >= 2);
 
-        Property hasModifier = model.createProperty("http://webofcode.orghasModifier");
-        Resource publicModifier = model.getResource("http://webofcode.orgPublic");
-        Resource protectedModifier = model.getResource("http://webofcode.orgProtected");
+        Property hasModifier = model.createProperty("http://rdf.webofcode.org/woc/hasModifier");
+        Resource publicModifier = model.getResource("http://rdf.webofcode.org/woc/Public");
+        Resource protectedModifier = model.getResource("http://rdf.webofcode.org/woc/Protected");
         assertTrue(constructors.stream().anyMatch(constructor ->
                 constructor.hasProperty(hasModifier, publicModifier)));
         assertTrue(constructors.stream().anyMatch(constructor ->
@@ -74,15 +74,15 @@ class JavaPatchToRdfTest {
 
         Model model = JavaPatchToRdf.buildModelForFile(sourceFile.toString());
 
-        Resource methodType = model.getResource("http://webofcode.orgMethod");
+        Resource methodType = model.getResource("http://rdf.webofcode.org/woc/Method");
         assertTrue(model.listResourcesWithProperty(RDF.type, methodType).toSet().size() >= 2);
 
-        Property methodName = model.createProperty("http://webofcode.orgname");
+        Property methodName = model.createProperty("http://rdf.webofcode.org/woc/name");
         Resource methodResource = model.listResourcesWithProperty(RDF.type, methodType).toList().stream()
                 .filter(method -> method.hasProperty(methodName, "getName"))
                 .findFirst()
                 .orElseThrow(() -> new AssertionError("Missing getName method record"));
-        Property hasReturnType = model.createProperty("http://webofcode.orghasReturnType");
+        Property hasReturnType = model.createProperty("http://rdf.webofcode.org/woc/hasReturnType");
         assertTrue(methodResource.hasProperty(RDF.type, methodType));
         assertTrue(methodResource.getURI().startsWith("https://github.com/Incodam/"));
         assertEquals("https://github.com/Incodam/java.lang.String",
@@ -96,9 +96,9 @@ class JavaPatchToRdfTest {
         assertTrue(voidMethod.hasProperty(hasReturnType, model.getResource("https://github.com/Incodam/void")),
                 "Primitive and void return types should also be represented as resources");
 
-        Property hasModifier = model.createProperty("http://webofcode.orghasModifier");
-        assertTrue(methodResource.hasProperty(hasModifier, model.getResource("http://webofcode.orgPublic")));
-        assertTrue(voidMethod.hasProperty(hasModifier, model.getResource("http://webofcode.orgProtected")));
+        Property hasModifier = model.createProperty("http://rdf.webofcode.org/woc/hasModifier");
+        assertTrue(methodResource.hasProperty(hasModifier, model.getResource("http://rdf.webofcode.org/woc/Public")));
+        assertTrue(voidMethod.hasProperty(hasModifier, model.getResource("http://rdf.webofcode.org/woc/Protected")));
         assertTrue(methodResource.getProperty(hasModifier).getObject().isResource());
         assertTrue(voidMethod.getProperty(hasModifier).getObject().isResource());
     }
@@ -117,7 +117,7 @@ class JavaPatchToRdfTest {
         String namespace = "https://github.com/Incodam/";
         Resource child = model.getResource(namespace + "demo.Child");
         Resource owlClass = model.getResource("http://www.w3.org/2002/07/owl#Class");
-        Resource wocClass = model.getResource("http://webofcode.orgClass");
+        Resource wocClass = model.getResource("http://rdf.webofcode.org/woc/Class");
         Property subClassOf = model.createProperty("http://www.w3.org/2000/01/rdf-schema#subClassOf");
 
         assertTrue(child.hasProperty(RDF.type, wocClass));
@@ -130,7 +130,7 @@ class JavaPatchToRdfTest {
         assertTrue(model.getResource(namespace + "external.Contract").hasProperty(RDF.type, owlClass));
         assertTrue(!child.hasProperty(subClassOf, model.getResource(namespace + "java.lang.Object")),
                 "Only the declared direct superclass should be linked");
-        assertTrue(child.hasProperty(model.createProperty("http://webofcode.orghasMethod")),
+        assertTrue(child.hasProperty(model.createProperty("http://rdf.webofcode.org/woc/hasMethod")),
                 "Class should link to its generated method records");
     }
 
@@ -150,14 +150,14 @@ class JavaPatchToRdfTest {
         String namespace = "https://github.com/Incodam/";
         Resource contract = model.getResource(namespace + "demo.ExampleContract");
         Resource parentContract = model.getResource(namespace + "demo.ParentContract");
-        Resource wocInterface = model.getResource("http://webofcode.orgInterface");
+        Resource wocInterface = model.getResource("http://rdf.webofcode.org/woc/Interface");
         Resource owlClass = model.getResource("http://www.w3.org/2002/07/owl#Class");
         Property subClassOf = model.createProperty("http://www.w3.org/2000/01/rdf-schema#subClassOf");
-        Property hasMethod = model.createProperty("http://webofcode.orghasMethod");
-        Property hasConstructor = model.createProperty("http://webofcode.orghasConstructor");
-        Property methodName = model.createProperty("http://webofcode.orgname");
-        Property hasModifier = model.createProperty("http://webofcode.orghasModifier");
-        Resource publicModifier = model.getResource("http://webofcode.orgPublic");
+        Property hasMethod = model.createProperty("http://rdf.webofcode.org/woc/hasMethod");
+        Property hasConstructor = model.createProperty("http://rdf.webofcode.org/woc/hasConstructor");
+        Property methodName = model.createProperty("http://rdf.webofcode.org/woc/name");
+        Property hasModifier = model.createProperty("http://rdf.webofcode.org/woc/hasModifier");
+        Resource publicModifier = model.getResource("http://rdf.webofcode.org/woc/Public");
 
         assertTrue(contract.hasProperty(RDF.type, wocInterface));
         assertTrue(contract.hasProperty(RDF.type, owlClass));
@@ -169,7 +169,7 @@ class JavaPatchToRdfTest {
                 "Interfaces should not produce constructor records");
 
         List<Resource> methods = model.listResourcesWithProperty(RDF.type,
-                model.getResource("http://webofcode.orgMethod")).toList();
+                model.getResource("http://rdf.webofcode.org/woc/Method")).toList();
         for (String name : List.of("getName", "setName")) {
             Resource method = methods.stream()
                     .filter(candidate -> candidate.hasProperty(methodName, name))
@@ -215,9 +215,9 @@ class JavaPatchToRdfTest {
         ).getBytes());
 
         Model model = JavaPatchToRdf.buildModelForFile(sourceFile.toString());
-        List<Resource> overloads = model.listResourcesWithProperty(RDF.type, model.getResource("http://webofcode.orgMethod"))
+        List<Resource> overloads = model.listResourcesWithProperty(RDF.type, model.getResource("http://rdf.webofcode.org/woc/Method"))
                 .toList().stream()
-                .filter(resource -> resource.hasProperty(model.createProperty("http://webofcode.orgname"), "update"))
+                .filter(resource -> resource.hasProperty(model.createProperty("http://rdf.webofcode.org/woc/name"), "update"))
                 .collect(Collectors.toList());
 
         assertTrue(overloads.size() == 2);
@@ -236,14 +236,14 @@ class JavaPatchToRdfTest {
 
         Model model = JavaPatchToRdf.buildModelForFile(sourcePath, patchPath);
 
-        Resource patchedMethod = model.listResourcesWithProperty(RDF.type, model.getResource("http://webofcode.orgMethod")).toList().stream()
-                .filter(r -> r.hasProperty(model.createProperty("http://webofcode.orgname"), "setDoc"))
+        Resource patchedMethod = model.listResourcesWithProperty(RDF.type, model.getResource("http://rdf.webofcode.org/woc/Method")).toList().stream()
+                .filter(r -> r.hasProperty(model.createProperty("http://rdf.webofcode.org/woc/name"), "setDoc"))
                 .findFirst()
                 .orElseThrow(() -> new AssertionError("Missing patched method resource"));
         assertTrue(patchedMethod.hasProperty(model.createProperty("https://github.com/Incodam/isPatchOfMethod")));
 
-        Resource unpatchedMethod = model.listResourcesWithProperty(RDF.type, model.getResource("http://webofcode.orgMethod")).toList().stream()
-                .filter(r -> r.hasProperty(model.createProperty("http://webofcode.orgname"), "setName"))
+        Resource unpatchedMethod = model.listResourcesWithProperty(RDF.type, model.getResource("http://rdf.webofcode.org/woc/Method")).toList().stream()
+                .filter(r -> r.hasProperty(model.createProperty("http://rdf.webofcode.org/woc/name"), "setName"))
                 .findFirst()
                 .orElseThrow(() -> new AssertionError("Missing unpatched method resource"));
         assertTrue(!unpatchedMethod.hasProperty(model.createProperty("https://github.com/Incodam/isPatchOfMethod")));
@@ -256,13 +256,13 @@ class JavaPatchToRdfTest {
 
         Model model = JavaPatchToRdf.buildModelForFile(sourcePath, patchPath);
 
-        Resource patchedConstructor = model.listResourcesWithProperty(RDF.type, model.getResource("http://webofcode.orgConstructor")).toList().stream()
+        Resource patchedConstructor = model.listResourcesWithProperty(RDF.type, model.getResource("http://rdf.webofcode.org/woc/Constructor")).toList().stream()
                 .filter(r -> parameterTypes(r).equals(java.util.Collections.singletonList("java.lang.String")))
                 .findFirst()
                 .orElseThrow(() -> new AssertionError("Missing patched constructor resource"));
         assertTrue(patchedConstructor.hasProperty(model.createProperty("https://github.com/Incodam/isNewConstructor")));
 
-        Resource unpatchedConstructor = model.listResourcesWithProperty(RDF.type, model.getResource("http://webofcode.orgConstructor")).toList().stream()
+        Resource unpatchedConstructor = model.listResourcesWithProperty(RDF.type, model.getResource("http://rdf.webofcode.org/woc/Constructor")).toList().stream()
                 .filter(r -> parameterTypes(r).equals(java.util.Arrays.asList("java.lang.String", "java.lang.String")))
                 .findFirst()
                 .orElseThrow(() -> new AssertionError("Missing unpatched constructor resource"));
@@ -295,8 +295,8 @@ class JavaPatchToRdfTest {
 
         Model model = JavaPatchToRdf.buildModelForFile(sourceFile.toString(), patchFile.toString());
 
-        Resource patchedMethod = model.listResourcesWithProperty(RDF.type, model.getResource("http://webofcode.orgMethod")).toList().stream()
-                .filter(r -> r.hasProperty(model.createProperty("http://webofcode.orgname"), "setDoc"))
+        Resource patchedMethod = model.listResourcesWithProperty(RDF.type, model.getResource("http://rdf.webofcode.org/woc/Method")).toList().stream()
+                .filter(r -> r.hasProperty(model.createProperty("http://rdf.webofcode.org/woc/name"), "setDoc"))
                 .findFirst()
                 .orElseThrow(() -> new AssertionError("Missing multiline method resource"));
 
@@ -327,7 +327,7 @@ class JavaPatchToRdfTest {
 
         Model model = JavaPatchToRdf.buildModelForFile(sourceFile.toString(), patchFile.toString());
         Property isPatchOfConstructor = model.createProperty("https://github.com/Incodam/isPatchOfConstructor");
-        Resource constructorType = model.getResource("http://webofcode.orgConstructor");
+        Resource constructorType = model.getResource("http://rdf.webofcode.org/woc/Constructor");
         Resource changedConstructor = model.listResourcesWithProperty(RDF.type, constructorType).toList().stream()
                 .filter(resource -> parameterTypes(resource).equals(java.util.Arrays.asList("java.lang.String", "int")))
                 .findFirst()
@@ -380,9 +380,9 @@ class JavaPatchToRdfTest {
         Resource removed = model.getResource(namespace + "demo.Removed");
         Property isDeleted = model.createProperty(namespace + "isDeleted");
 
-        assertTrue(first.hasProperty(RDF.type, model.getResource("http://webofcode.orgClass")));
-        assertTrue(second.hasProperty(RDF.type, model.getResource("http://webofcode.orgInterface")));
-        assertTrue(removed.hasProperty(RDF.type, model.getResource("http://webofcode.orgClass")));
+        assertTrue(first.hasProperty(RDF.type, model.getResource("http://rdf.webofcode.org/woc/Class")));
+        assertTrue(second.hasProperty(RDF.type, model.getResource("http://rdf.webofcode.org/woc/Interface")));
+        assertTrue(removed.hasProperty(RDF.type, model.getResource("http://rdf.webofcode.org/woc/Class")));
         assertTrue(removed.hasProperty(RDF.type, model.getResource("http://www.w3.org/2002/07/owl#Class")));
         assertTrue(removed.hasProperty(isDeleted, removed));
     }
