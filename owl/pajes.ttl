@@ -210,8 +210,8 @@ icodm:annotationProperties
 icodm:semanticallyRefersTo
     a owl:ObjectProperty ;
     rdfs:label "semantically refers to"@en ;
-    rdfs:comment "Links a selected annotation property value to the RDF resources denoted by configured semantic terms."@en ;
-    rdfs:domain icodm:CoAProperty ;
+    rdfs:comment "Links a selected annotation or condition property value to the RDF resources denoted by configured semantic terms."@en ;
+    rdfs:domain icodm:CoProperty ;
     rdfs:range rdf:List .
 
 woc:hasReturnType
