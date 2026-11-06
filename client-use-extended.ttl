@@ -1,5 +1,5 @@
 @prefix icodm: <https://github.com/Incodam/> .
-@prefix woc:   <http://webofcode.org> .
+@prefix woc:   <http://rdf.webofcode.org/woc/> .
 
 icodm:org.incodame.pajes
         a icodm:JavaModule;

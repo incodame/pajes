@@ -409,11 +409,11 @@ class ClientUseCompilerTest {
         String namespace = "https://github.com/Incodam/";
         org.apache.jena.rdf.model.Model model = processor.getModel();
         org.apache.jena.rdf.model.Resource clientInterface = model.getResource(namespace + "example.ClientContract");
-        assertTrue(clientInterface.hasProperty(RDF.type, model.getResource("http://webofcode.orgInterface")));
+        assertTrue(clientInterface.hasProperty(RDF.type, model.getResource("http://rdf.webofcode.org/woc/Interface")));
         assertTrue(clientInterface.hasProperty(
                         model.createProperty(namespace + "applBranch"), "main"));
 
-        Property calls = model.createProperty("http://webofcode.orgcalls");
+        Property calls = model.createProperty("http://rdf.webofcode.org/woc/calls");
         assertTrue(clientInterface.listProperties(calls).toList().stream()
                         .map(statement -> statement.getResource().getURI())
                         .anyMatch(uri -> uri.startsWith(namespace + "org.apache.jena.rdf.model.Api_ping_")
@@ -550,7 +550,7 @@ class ClientUseCompilerTest {
         String namespace = "https://github.com/Incodam/";
         org.apache.jena.rdf.model.Model model = processor.getModel();
         org.apache.jena.rdf.model.Resource client = model.getResource(namespace + "example.Client");
-        Property calls = model.createProperty("http://webofcode.orgcalls");
+        Property calls = model.createProperty("http://rdf.webofcode.org/woc/calls");
         List<String> callUris = client.listProperties(calls).toList().stream()
                 .map(statement -> statement.getResource().getURI())
                 .toList();
@@ -682,7 +682,7 @@ class ClientUseCompilerTest {
         String namespace = "https://github.com/Incodam/";
         org.apache.jena.rdf.model.Resource client = processor.getModel()
                 .getResource(namespace + "example.Client");
-        Property calls = processor.getModel().createProperty("http://webofcode.orgcalls");
+        Property calls = processor.getModel().createProperty("http://rdf.webofcode.org/woc/calls");
         List<String> callUris = client.listProperties(calls).toList().stream()
                 .map(statement -> statement.getResource().getURI())
                 .toList();
@@ -1002,9 +1002,9 @@ class ClientUseCompilerTest {
             org.apache.jena.rdf.model.Resource client = model.getResource(namespace + "example." + className);
             assertTrue(client.hasProperty(RDF.type), "API client should retain its type: " + className);
             assertTrue(client.hasProperty(model.createProperty(namespace + "applBranch"), "1.0.1"));
-            assertTrue(client.hasProperty(model.createProperty("http://webofcode.orgcalls"))
-                    || client.hasProperty(model.createProperty("http://webofcode.orgimplements"))
-                    || client.hasProperty(model.createProperty("http://webofcode.orgextends")),
+            assertTrue(client.hasProperty(model.createProperty("http://rdf.webofcode.org/woc/calls"))
+                    || client.hasProperty(model.createProperty("http://rdf.webofcode.org/woc/implements"))
+                    || client.hasProperty(model.createProperty("http://rdf.webofcode.org/woc/extends")),
                     "Each emitted client type must have a target API link: " + className);
         }
         assertTrue(processor.getClientPackages().contains("example"),

@@ -22,7 +22,7 @@ import spoon.support.compiler.SpoonPom;
 final class ClientUseRdfMetadata {
 
     private static final String ICODM = "https://github.com/Incodam/";
-    private static final String WOC = "http://webofcode.org";
+    private static final String WOC = "http://rdf.webofcode.org/woc/";
     private static final Pattern VERSION_PATTERN = Pattern.compile("\\d+(?:\\.[A-Za-z0-9_-]+)*");
 
     private ClientUseRdfMetadata() {

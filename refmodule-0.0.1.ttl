@@ -1,7 +1,7 @@
 @prefix icodm: <https://github.com/Incodam/> .
 @prefix owl:   <http://www.w3.org/2002/07/owl#> .
 @prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
-@prefix woc:   <http://webofcode.org> .
+@prefix woc:   <http://rdf.webofcode.org/woc/> .
 
 icodm:org.incodame.paragraph.sample.webapp.demo.Parameter_getName_3c213608e38d_stable
         a                  woc:Method;

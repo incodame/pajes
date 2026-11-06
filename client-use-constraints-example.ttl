@@ -1,3 +1,9 @@
+@prefix icodm: <https://github.com/Incodam/> .
+@prefix rdf:   <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix woc:   <http://rdf.webofcode.org/woc/> .
+@prefix xsd:   <http://www.w3.org/2001/XMLSchema#> .
+
 icodm:org.incodame.pajes.client.ClientUseToRdf        
     icodm:onMethodCall icodm:org.apache.jena.rdf.model.Model_write_2031d85c99f0_stable_constraint_set_100 ;
     icodm:applBranch  "main" .

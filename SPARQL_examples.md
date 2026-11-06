@@ -43,7 +43,7 @@ queries the indexed triples; it does not automatically perform OWL inference.
 PREFIX icodm: <https://github.com/Incodam/>
 PREFIX owl:   <http://www.w3.org/2002/07/owl#>
 PREFIX rdfs:  <http://www.w3.org/2000/01/rdf-schema#>
-PREFIX woc:   <http://webofcode.org>
+PREFIX woc:   <http://rdf.webofcode.org/woc/>
 
 SELECT ?class ?name ?superclass ?version
 WHERE {
@@ -58,7 +58,7 @@ ORDER BY ?name ?version
 ## 3. List methods and constructors declared on classes
 
 ```sparql
-PREFIX woc: <http://webofcode.org>
+PREFIX woc: <http://rdf.webofcode.org/woc/>
 
 SELECT ?class ?memberType ?member ?name ?modifier
 WHERE {
@@ -88,7 +88,7 @@ The parameter-list traversal is optional. Therefore methods with an empty
 unbound. Methods with parameters produce one result row per parameter.
 
 ```sparql
-PREFIX woc: <http://webofcode.org>
+PREFIX woc: <http://rdf.webofcode.org/woc/>
 PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
 
 SELECT ?class ?method ?name ?index ?type
@@ -121,7 +121,7 @@ WHERE {
 
 ```sparql
 PREFIX icodm: <https://github.com/Incodam/>
-PREFIX woc:   <http://webofcode.org>
+PREFIX woc:   <http://rdf.webofcode.org/woc/>
 
 SELECT ?clientClass ?branch ?calledMethod
 WHERE {
@@ -142,7 +142,7 @@ was added, removed, or changed.
 ```sparql
 PREFIX icodm: <https://github.com/Incodam/>
 PREFIX rdf:   <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
-PREFIX woc:   <http://webofcode.org>
+PREFIX woc:   <http://rdf.webofcode.org/woc/>
 
 SELECT DISTINCT ?clientComponent ?branch ?stableMethod ?patchedMethod
 WHERE {
@@ -194,7 +194,7 @@ the `_stable` suffix with `_patched`. If no method record exists at that exact
 IRI, the query reports the stable method.
 
 ```sparql
-PREFIX woc:   <http://webofcode.org>
+PREFIX woc:   <http://rdf.webofcode.org/woc/>
 
 SELECT DISTINCT ?class ?methodName ?stableMethod
 WHERE {

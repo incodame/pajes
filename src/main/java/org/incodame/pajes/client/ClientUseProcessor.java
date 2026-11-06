@@ -54,7 +54,7 @@ public class ClientUseProcessor extends AbstractProcessor<CtElement> {
     // Initialisation du modèle Jena et des préfixes graphiques
     private final Model model = ModelFactory.createDefaultModel();
     private final String ICODM = "https://github.com/Incodam/";// Préfixe de votre refmodule
-    private final String WOC = "http://webofcode.org";        // Préfixe de l'ontologie WebOfCode
+    private final String WOC = "http://rdf.webofcode.org/woc/";
     
     // Définition des propriétés de liaison
     private final Property wocCalls = model.createProperty(WOC + "calls");

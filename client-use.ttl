@@ -1,6 +1,6 @@
 @prefix icodm: <https://github.com/Incodam/> .
 @prefix owl:   <http://www.w3.org/2002/07/owl#> .
-@prefix woc:   <http://webofcode.org> .
+@prefix woc:   <http://rdf.webofcode.org/woc/> .
 
 icodm:org.incodame.pajes.apiref
         a       woc:Package , icodm:JavaSubModule .

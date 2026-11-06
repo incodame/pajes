@@ -22,7 +22,7 @@ public class CodeOntologyReporter implements Reporter {
     private CodeOntologyVisitor visitor;
     private Path outputFile;
     
-    private static final String WOC_NS = "http://webofcode.org";
+    private static final String WOC_NS = "http://rdf.webofcode.org/woc/";
     private static final String APP_NS = "https://github.com/Incodam/";
     static final String OUTPUT_FILE_PROPERTY = "pajes.rdf.output";
     static final String OUTPUT_DIRECTORY_PROPERTY = "pajes.rdf.output.directory";

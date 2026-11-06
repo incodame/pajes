@@ -39,7 +39,7 @@ public class JavaPatchToRdf {
             "Thread", "Throwable", "Void");
 
     // Espace de noms officiel de CodeOntology
-    private static final String WOC_NS = "http://webofcode.org";
+    private static final String WOC_NS = "http://rdf.webofcode.org/woc/";
     // Espace de noms personnalisé pour votre projet / votre pont logique
     // The trailing slash keeps Turtle serializer output compatible with the icodm: prefix.
     private static final String EX_NS = "https://github.com/Incodam/";
