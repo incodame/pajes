@@ -258,6 +258,41 @@ icodm:typeUseContract
     rdfs:domain owl:Class ;
     rdfs:range icodm:ApiConditionSet .
 
+icodm:methodCallCondition
+    a owl:ObjectProperty ;
+    rdfs:label "condition on method call parameters"@en ;
+    rdfs:comment "A condition describing requirements on arguments to an API method."@en ;
+    rdfs:domain woc:Method ;
+    rdfs:range icodm:ApiCondition .
+
+icodm:methodReturnCondition
+    a owl:ObjectProperty ;
+    rdfs:label "condition on method return"@en ;
+    rdfs:comment "A condition describing guarantees or semantics of an API method's return value."@en ;
+    rdfs:domain woc:Method ;
+    rdfs:range icodm:ApiCondition .
+
+icodm:callbackCondition
+    a owl:ObjectProperty ;
+    rdfs:label "condition on callback parameters"@en ;
+    rdfs:comment "A condition describing requirements on arguments accepted by an API callback method."@en ;
+    rdfs:domain woc:Method ;
+    rdfs:range icodm:ApiCondition .
+
+icodm:callbackReturnCondition
+    a owl:ObjectProperty ;
+    rdfs:label "condition on callback return"@en ;
+    rdfs:comment "A condition describing guarantees or semantics of an API callback method's return value."@en ;
+    rdfs:domain woc:Method ;
+    rdfs:range icodm:ApiCondition .
+
+icodm:typeUseCondition
+    a owl:ObjectProperty ;
+    rdfs:label "condition on API type use"@en ;
+    rdfs:comment "A condition describing constraints or semantics attached to an API type."@en ;
+    rdfs:domain owl:Class ;
+    rdfs:range icodm:ApiCondition .
+
 icodm:includesCondition
     a owl:ObjectProperty ;
     rdfs:label "includes condition"@en ;
