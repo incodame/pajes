@@ -230,13 +230,25 @@ woc:hasReturnType
     rdfs:domain woc:Method ;
     rdfs:range owl:Class .
 
-# Controlled Term Framework Classes
+# Controlled Term Framework object properties
 
 icodm:refersToTerm a owl:ObjectProperty ;
     rdfs:label "maps to controlled term"@en ;
     rdfs:comment "Links a code-level entity (like a Java parameter or method) to a structural controlled term concept."@en ;
     rdfs:domain icodm:CoProperty ;
     rdfs:range rdf:List .
+
+icodm:suppliesInformation a owl:ObjectProperty ;
+    rdfs:label "supplies information (controlled term)"@en ;
+    rdfs:comment "Links a java component entity to a structural controlled term concept."@en ;
+    rdfs:domain woc:Class ;
+    rdfs:range icodm:ControlledTerm.   
+
+icodm:consumesInformation a owl:ObjectProperty ;
+    rdfs:label "consumes information (controlled term)"@en ;
+    rdfs:comment "Links a java component entity to a structural controlled term concept."@en ;
+    rdfs:domain woc:Class ;
+    rdfs:range icodm:ControlledTerm.      
 
 # refmodule extension with contracts
 
