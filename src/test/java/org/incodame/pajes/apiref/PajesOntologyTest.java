@@ -25,13 +25,14 @@ class PajesOntologyTest {
         assertDeclarations(ontology, OWL.Class, List.of(
                 "JavaModule", "JavaSubModule", "JavaLibrary", "LibraryDependency",
                 "ApiClientConstraint", "ApiClientConstraintSet", "JavaConstraintAnnotation", "CoProperty",
-                "CoAProperty", "ApiContract", "ApiConditionSet", "ApiCondition", "ApiCoProperty",
+                "CoAProperty", "ControlledTerm", "ApiContract", "ApiConditionSet", "ApiCondition", "ApiCoProperty",
                 "JavaContractAnnotation"));
         assertDeclarations(ontology, OWL.ObjectProperty, List.of(
                 "hasSubModule", "hasDependency", "targetPackage", "isNewConstructor",
                 "isPatchOfConstructor", "isNewMethod", "isPatchOfMethod", "isDeleted",
                 "onMethodCall", "onMethodReturn", "onCallback", "onCallbackReturn", "onTypeUse",
-                "hasContraints", "annotations", "annotationProperties", "semanticallyRefersTo", "methodCallContract",
+                "hasContraints", "annotations", "annotationProperties", "semanticallyRefersTo", "refersToTerm",
+                "methodCallContract",
                 "methodReturnContract", "callbackContract", "callbackReturnContract", "typeUseContract",
                 "includesCondition", "conditionProperties"));
         assertDeclarations(ontology, OWL.DatatypeProperty, List.of(

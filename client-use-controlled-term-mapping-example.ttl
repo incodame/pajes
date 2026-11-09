@@ -1,0 +1,66 @@
+@prefix icodm: <https://github.com/Incodam/> .
+@prefix owl:   <http://www.w3.org/2002/07/owl#> .
+@prefix rdf:   <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix skos:  <http://www.w3.org/2004/02/skos/core#> .
+@prefix woc:   <http://rdf.webofcode.org/woc/> .
+@prefix xsd:   <http://www.w3.org/2001/XMLSchema#> .
+
+# controlled terms configured in pajes-config.yaml - should be present in client-use-terms.ttl
+
+icodm:Class a owl:Class ;
+        rdfs:subClassOf icodm:ControlledTerm ;
+        rdfs:label "class"@en ;
+        rdfs:comment "a java class."@en ;
+        # Aggregating human-readable synonyms
+        skos:altLabel "java class"@en , "java component"@en ;
+        # Aggregating code-level / machine-readable synonyms
+        skos:altLabel "Class" , "CtClass" , "CtType" .
+
+icodm:AbstractClass a owl:Class ;
+        rdfs:subClassOf icodm:Class ;
+        rdfs:label "abstract class"@en ;
+        rdfs:comment "an abstract java class"@en .
+
+icodm:InnerClass a owl:Class ;
+        rdfs:subClassOf icodm:Class ;
+        rdfs:label "inner class"@en ;
+        rdfs:comment "a java class defined inside another class"@en ;
+        skos:altLabel "nested class" .
+
+icodm:AnonymousInnerClass a owl:Class ;
+        rdfs:subClassOf icodm:InnerClass ;
+        rdfs:label "anonymous inner class"@en ;
+        rdfs:comment "a java class defined by an interface and created dynamically inside another class"@en .
+
+# ClientUseProcessor has constraints on method recordTargetClientPackage (its ApiTerm annotation refers to controlled term "class")
+
+icodm:org.incodame.pajes.client.ClientUseProcessor
+        icodm:applBranch  "main";
+        icodm:onTypeUse  icodm:org.incodame.pajes.client.ClientUseProcessor_recordTargetClientPackage_e2b7ef793be1_constraint_set_359 .
+
+icodm:org.incodame.pajes.client.ClientUseProcessor_recordTargetClientPackage_e2b7ef793be1_constraint_set_359
+        rdf:type             icodm:ApiClientConstraintSet;
+        icodm:hasContraints  ( icodm:org.incodame.pajes.client.ClientUseProcessor_recordTargetClientPackage_e2b7ef793be1_constraint_359_1 ) .
+
+icodm:org.incodame.pajes.client.ClientUseProcessor_recordTargetClientPackage_e2b7ef793be1_constraint_359_1
+        rdf:type           icodm:ApiClientConstraint;
+        icodm:annotations  icodm:org.incodame.pajes.client.ClientUseProcessor_recordTargetClientPackage_e2b7ef793be1_constraint_359_1_a .
+
+icodm:org.incodame.pajes.client.ClientUseProcessor_recordTargetClientPackage_e2b7ef793be1_constraint_359_1_a
+        rdf:type                    woc:Annotation , icodm:JavaConstraintAnnotation;
+        rdfs:label                  "ApiTerm";
+        icodm:annotationProperties  ( icodm:org.incodame.pajes.client.ClientUseProcessor_recordTargetClientPackage_e2b7ef793be1_constraint_359_1_a_at_select icodm:org.incodame.pajes.client.ClientUseProcessor_recordTargetClientPackage_e2b7ef793be1_constraint_359_1_a_at_term ) .
+
+icodm:org.incodame.pajes.client.ClientUseProcessor_recordTargetClientPackage_e2b7ef793be1_constraint_359_1_a_at_select
+        rdf:type    icodm:CoAProperty;
+        rdf:value   "";
+        rdfs:label  "select" .
+
+icodm:org.incodame.pajes.client.ClientUseProcessor_recordTargetClientPackage_e2b7ef793be1_constraint_359_1_a_at_term
+        rdf:type                    icodm:CoAProperty;
+        rdf:value                   "class";
+        rdfs:label                  "term";
+        icodm:refersToTerm  ( icodm:Class ) .
+
+

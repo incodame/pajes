@@ -2,6 +2,7 @@
 @prefix owl:   <http://www.w3.org/2002/07/owl#> .
 @prefix rdf:   <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 @prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix skos:  <http://www.w3.org/2004/02/skos/core#> .
 @prefix woc:   <http://rdf.webofcode.org/woc/> .
 @prefix xsd:   <http://www.w3.org/2001/XMLSchema#> .
 
@@ -69,6 +70,14 @@ icodm:CoAProperty
     rdfs:subClassOf icodm:CoProperty ;
     rdfs:label "Constraint annotation property"@en ;
     rdfs:comment "A named property value transferred from a Java constraint annotation."@en .
+
+
+# Controlled Term Framework Classes
+
+icodm:ControlledTerm a owl:Class ;
+    rdfs:subClassOf skos:Concept ;
+    rdfs:label "Controlled Term"@en ;
+    rdfs:comment "The base class for all semantic controlled concepts mapped to source code entities."@en .
 
 # refmodule extension with contracts
 
@@ -220,6 +229,14 @@ woc:hasReturnType
     rdfs:comment "Links a method to the RDF resource representing its Java return type."@en ;
     rdfs:domain woc:Method ;
     rdfs:range owl:Class .
+
+# Controlled Term Framework Classes
+
+icodm:refersToTerm a owl:ObjectProperty ;
+    rdfs:label "maps to controlled term"@en ;
+    rdfs:comment "Links a code-level entity (like a Java parameter or method) to a structural controlled term concept."@en ;
+    rdfs:domain icodm:CoProperty ;
+    rdfs:range rdf:List .
 
 # refmodule extension with contracts
 

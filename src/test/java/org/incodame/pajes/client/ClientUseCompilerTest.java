@@ -333,6 +333,59 @@ class ClientUseCompilerTest {
         }
 
         @Test
+        void readsControlledTermsAndBuildsTheirHierarchy(@TempDir Path tempDir) throws Exception {
+                Path configuration = tempDir.resolve("pajes-config.yaml");
+                Files.writeString(configuration,
+                                "controlled-terms:\n"
+                                                + "  class:\n"
+                                                + "    comment: a java class\n"
+                                                + "    alternatives: [java class, type]\n"
+                                                + "    machine-reads: [CtType]\n"
+                                                + "    subclasses: [inner class]\n"
+                                                + "  inner class:\n"
+                                                + "    comment: a nested java class\n");
+
+                ClientUseToRdf.ClientUseConfiguration configurationData =
+                                ClientUseToRdf.resolveClientUseConfiguration(configuration);
+                assertEquals("https://github.com/Incodam/Class",
+                                configurationData.controlledTermAliases().get("java class"));
+                assertEquals("https://github.com/Incodam/Class",
+                                configurationData.controlledTermAliases().get("cttype"));
+
+                org.apache.jena.rdf.model.Model terms = configurationData.controlledTermsModel();
+                org.apache.jena.rdf.model.Resource classTerm =
+                                terms.getResource("https://github.com/Incodam/Class");
+                org.apache.jena.rdf.model.Resource innerClassTerm =
+                                terms.getResource("https://github.com/Incodam/InnerClass");
+                assertTrue(classTerm.hasProperty(RDF.type, terms.createResource(
+                                "http://www.w3.org/2002/07/owl#Class")));
+                assertTrue(innerClassTerm.hasProperty(
+                                terms.createProperty("http://www.w3.org/2000/01/rdf-schema#subClassOf"),
+                                classTerm));
+                assertTrue(classTerm.hasProperty(
+                                terms.createProperty("http://www.w3.org/2004/02/skos/core#altLabel")));
+                assertEquals(2, terms.listResourcesWithProperty(RDF.type,
+                                terms.createResource("http://www.w3.org/2002/07/owl#Class")).toList().size());
+        }
+
+        @Test
+        void parsesTheProjectControlledTermConfiguration() throws Exception {
+                ClientUseToRdf.ClientUseConfiguration configuration =
+                                ClientUseToRdf.resolveClientUseConfiguration(Path.of("pajes-config.yaml"));
+                assertEquals("https://github.com/Incodam/AnonymousInnerClass",
+                                configuration.controlledTermAliases().get("anonymous inner class"));
+                assertEquals("https://github.com/Incodam/Class",
+                                configuration.controlledTermAliases().get("cttype"));
+                assertTrue(configuration.controlledTermsModel().contains(
+                                configuration.controlledTermsModel().getResource(
+                                                "https://github.com/Incodam/AnonymousInnerClass"),
+                                configuration.controlledTermsModel().createProperty(
+                                                "http://www.w3.org/2000/01/rdf-schema#subClassOf"),
+                                configuration.controlledTermsModel().getResource(
+                                                "https://github.com/Incodam/InnerClass")));
+        }
+
+        @Test
         void rejectsMalformedClientAnnotationConfiguration(@TempDir Path tempDir) throws Exception {
                 Path configuration = tempDir.resolve("pajes-config.yaml");
                 Files.writeString(configuration, "client-annotations: {}\n");
@@ -776,6 +829,66 @@ class ClientUseCompilerTest {
                 .map(resource -> resource.getProperty(RDF.value).getString())
                 .toList();
         assertEquals(List.of("nsPrefix", "aggregate('icodm:', packageName)"), values);
+    }
+
+    @Test
+    void mapsApiTermToTheLongestMatchingControlledTerm(@TempDir Path tempDir) throws Exception {
+        Path apiSource = tempDir.resolve("src/api/CtType.java");
+        Files.createDirectories(apiSource.getParent());
+        Files.writeString(apiSource, "package api; public interface CtType { }\n");
+
+        Path clientSource = tempDir.resolve("src/example/Client.java");
+        Files.createDirectories(clientSource.getParent());
+        Files.writeString(clientSource,
+                "package example;\n"
+                        + "@interface ApiTypeConsumer { }\n"
+                        + "@interface ApiTerm { String select() default \"\"; String term(); }\n"
+                        + "public class Client {\n"
+                        + "    @ApiTypeConsumer\n"
+                        + "    public void consume(@ApiTerm(term = \"anonymous inner class\") api.CtType type) { }\n"
+                        + "}\n");
+
+        Map<String, String> controlledTerms = Map.of(
+                "class", "https://github.com/Incodam/Class",
+                "inner class", "https://github.com/Incodam/InnerClass",
+                "anonymous inner class", "https://github.com/Incodam/AnonymousInnerClass",
+                "cttype", "https://github.com/Incodam/Class");
+        ClientUseProcessor processor = new ClientUseProcessor("api", "main",
+                Map.of("ApiTerm", List.of("select", "term")), Map.of(), Map.of(), Map.of(), controlledTerms);
+        Launcher launcher = new Launcher();
+        launcher.getEnvironment().setComplianceLevel(17);
+        launcher.getEnvironment().setNoClasspath(true);
+        launcher.addInputResource(apiSource.toString());
+        launcher.addInputResource(clientSource.toString());
+        launcher.addProcessor(processor);
+        launcher.run();
+
+        String namespace = "https://github.com/Incodam/";
+        org.apache.jena.rdf.model.Model constraints = processor.getConstraintModel();
+        org.apache.jena.rdf.model.Resource client = constraints.getResource(namespace + "example.Client");
+        org.apache.jena.rdf.model.Resource constraintSet = client.getProperty(
+                constraints.createProperty(namespace + "onTypeUse")).getResource();
+        org.apache.jena.rdf.model.Resource constraint = constraintSet.getProperty(
+                constraints.createProperty(namespace + "hasContraints")).getResource()
+                .as(org.apache.jena.rdf.model.RDFList.class).getHead().asResource();
+        org.apache.jena.rdf.model.Resource annotation = constraint.getProperty(
+                constraints.createProperty(namespace + "annotations")).getResource();
+        org.apache.jena.rdf.model.Resource termProperty = annotation.getProperty(
+                constraints.createProperty(namespace + "annotationProperties")).getResource()
+                .as(org.apache.jena.rdf.model.RDFList.class).asJavaList().stream()
+                .map(org.apache.jena.rdf.model.RDFNode::asResource)
+                .filter(property -> "term".equals(property.getProperty(
+                        constraints.createProperty("http://www.w3.org/2000/01/rdf-schema#label")).getString()))
+                .findFirst().orElseThrow();
+        org.apache.jena.rdf.model.RDFList termReferences = termProperty.getProperty(
+                constraints.createProperty(namespace + "refersToTerm"))
+                .getResource().as(org.apache.jena.rdf.model.RDFList.class);
+
+        assertEquals(List.of(namespace + "AnonymousInnerClass"), termReferences.asJavaList().stream()
+                .map(org.apache.jena.rdf.model.RDFNode::asResource)
+                .map(org.apache.jena.rdf.model.Resource::getURI)
+                .toList());
+        assertTrue(constraintSet.getURI().contains("_constraint_set_"));
     }
 
     @Test

@@ -13,6 +13,12 @@ client-annotations:
       - format
     semantic-properties:
       - format
+  - name: ApiTerm 
+    properties:
+      - select
+      - term
+    semantic-properties:
+      - term      
 semantic-mappings:
   prefixes:
     xsd: "http://www.w3.org/2001/XMLSchema#"
@@ -23,4 +29,31 @@ semantic-mappings:
     # If the Java annotation says format="timestamp", map to xsd:dateTime
     "timestamp": "xsd:dateTime"
     # If you are testing structured objects rather than strings
-    "structuredCalendar": "time:GeneralDateTimeDescription"      
+    "structuredCalendar": "time:GeneralDateTimeDescription"   
+controlled-terms:
+  "class":
+    comment: "a java class"
+    alternatives:
+      - "java class"
+      - "java component"
+      - "java type"
+      - "return type"
+      - "type"
+    machine-reads:
+      - "Class"
+      - "CtClass"
+      - "CtType"
+    subclasses:
+      - "abstract class"
+      - "inner class"
+  "abstract class":
+    comment: "an abstract java class"
+  "inner class":
+    comment: "a java class defined inside another class"
+    alternatives:
+      - "nested class"
+    subclasses:
+      - "anonymous inner class"
+  "anonymous inner class":
+    comment: "a java class defined by an interface and created dynamically inside another class"
+    

@@ -39,6 +39,9 @@ import spoon.reflect.declaration.CtType;
 import spoon.reflect.reference.CtExecutableReference;
 import spoon.reflect.reference.CtTypeReference;
 
+import org.incodame.pajes.annotations.ApiTerm;
+import org.incodame.pajes.annotations.ApiTypeConsumer;
+
 public class ClientUseProcessor extends AbstractProcessor<CtElement> {
 
     private final String targetPackage;
@@ -47,6 +50,7 @@ public class ClientUseProcessor extends AbstractProcessor<CtElement> {
     private final Map<String, Set<String>> semanticProperties;
     private final Map<String, String> semanticPrefixes;
     private final Map<String, String> semanticTerms;
+    private final Map<String, String> controlledTermAliases;
     private final Set<String> clientPackages = new LinkedHashSet<>();
     private final Set<String> targetClientPackages = new LinkedHashSet<>();
     private static final Pattern IDENTIFIER = Pattern.compile("[\\p{L}_][\\p{L}\\p{N}_]*");
@@ -74,6 +78,7 @@ public class ClientUseProcessor extends AbstractProcessor<CtElement> {
     private final Property annotations = constraintModel.createProperty(ICODM + "annotations");
     private final Property annotationProperties = constraintModel.createProperty(ICODM + "annotationProperties");
     private final Property rdfValue = constraintModel.createProperty(RDF.value.getURI());
+    private final Property refersToTerm = constraintModel.createProperty(ICODM + "refersToTerm");
     private final Property rdfsLabel = constraintModel.createProperty(
             "http://www.w3.org/2000/01/rdf-schema#label");
 
@@ -88,9 +93,16 @@ public class ClientUseProcessor extends AbstractProcessor<CtElement> {
     public ClientUseProcessor(String targetPackage, String branch, Map<String, List<String>> clientAnnotations,
             Map<String, Set<String>> semanticProperties, Map<String, String> semanticPrefixes,
             Map<String, String> semanticTerms) {
+        this(targetPackage, branch, clientAnnotations, semanticProperties, semanticPrefixes, semanticTerms, Map.of());
+    }
+
+    public ClientUseProcessor(String targetPackage, String branch, Map<String, List<String>> clientAnnotations,
+            Map<String, Set<String>> semanticProperties, Map<String, String> semanticPrefixes,
+            Map<String, String> semanticTerms, Map<String, String> controlledTermAliases) {
         if (targetPackage == null || targetPackage.trim().isEmpty()
                 || branch == null || branch.trim().isEmpty() || clientAnnotations == null
-                || semanticProperties == null || semanticPrefixes == null || semanticTerms == null) {
+                || semanticProperties == null || semanticPrefixes == null || semanticTerms == null
+                || controlledTermAliases == null) {
             throw new IllegalArgumentException("Target package, branch, and annotation configuration must be valid");
         }
         this.targetPackage = targetPackage;
@@ -110,6 +122,7 @@ public class ClientUseProcessor extends AbstractProcessor<CtElement> {
         this.semanticProperties = Collections.unmodifiableMap(semanticPropertyCopy);
         this.semanticPrefixes = Collections.unmodifiableMap(new LinkedHashMap<>(semanticPrefixes));
         this.semanticTerms = Collections.unmodifiableMap(new LinkedHashMap<>(semanticTerms));
+        this.controlledTermAliases = Collections.unmodifiableMap(new LinkedHashMap<>(controlledTermAliases));
 
         // Configuration des préfixes pour un affichage propre en Turtle (.ttl)
         model.setNsPrefix("icodm", ICODM);
@@ -258,6 +271,8 @@ public class ClientUseProcessor extends AbstractProcessor<CtElement> {
                 .addProperty(constraintModel.createProperty(ICODM + "applBranch"), branch);
         int sourceLine = consumerMethod.getPosition().isValidPosition()
                 ? consumerMethod.getPosition().getLine() : -1;
+        List<Resource> controlledTermConstraints = new ArrayList<>();
+        String consumerMethodUri = buildMemberUri(consumerMethod.getReference());
 
         for (int parameterIndex = 0; parameterIndex < consumerMethod.getParameters().size(); parameterIndex++) {
             CtParameter<?> parameter = consumerMethod.getParameters().get(parameterIndex);
@@ -269,11 +284,25 @@ public class ClientUseProcessor extends AbstractProcessor<CtElement> {
 
             List<CtAnnotation<?>> matchedAnnotations = matchingAnnotations(parameter.getAnnotations());
             for (int annotationIndex = 0; annotationIndex < matchedAnnotations.size(); annotationIndex++) {
-                Resource constraint = createConstraint(
-                        ICODM + parameterType.getQualifiedName(), sourceLine,
-                        "_" + (parameterIndex + 1), matchedAnnotations.get(annotationIndex), annotationIndex);
-                constraintClientResource.addProperty(onTypeUse, constraint);
+                CtAnnotation<?> annotation = matchedAnnotations.get(annotationIndex);
+                if ("ApiTerm".equals(annotation.getAnnotationType().getSimpleName())) {
+                    controlledTermConstraints.add(createConstraint(consumerMethodUri, sourceLine,
+                            "_" + (parameterIndex + 1), annotation, annotationIndex));
+                } else {
+                    Resource constraint = createConstraint(
+                            ICODM + parameterType.getQualifiedName(), sourceLine,
+                            "_" + (parameterIndex + 1), annotation, annotationIndex);
+                    constraintClientResource.addProperty(onTypeUse, constraint);
+                }
             }
+        }
+        if (!controlledTermConstraints.isEmpty()) {
+            String constraintSetUri = consumerMethodUri + "_constraint_set_" + sourceLine;
+            Resource constraintSet = constraintModel.createResource(constraintSetUri)
+                    .addProperty(RDF.type, constraintModel.createResource(ICODM + "ApiClientConstraintSet"))
+                    .addProperty(hasContraints,
+                            constraintModel.createList(controlledTermConstraints.iterator()));
+            constraintClientResource.addProperty(onTypeUse, constraintSet);
         }
     }
 
@@ -352,7 +381,8 @@ public class ClientUseProcessor extends AbstractProcessor<CtElement> {
         }
     }
 
-    private void recordTargetClientPackage(CtType<?> clientType) {
+    @ApiTypeConsumer
+    private void recordTargetClientPackage(@ApiTerm(term = "class") CtType<?> clientType) {
         recordClientPackage(clientType);
         CtPackage ctPackage = clientType.getPackage();
         if (ctPackage == null) {
@@ -549,6 +579,11 @@ public class ClientUseProcessor extends AbstractProcessor<CtElement> {
                 propertyResource.addProperty(constraintModel.createProperty(ICODM + "semanticallyRefersTo"),
                         constraintModel.createList(semanticReferences.iterator()));
             }
+            List<Resource> controlledTermReferences = controlledTermReferences(annotation, propertyName, value);
+            if (!controlledTermReferences.isEmpty()) {
+                propertyResource.addProperty(refersToTerm,
+                        constraintModel.createList(controlledTermReferences.iterator()));
+            }
             propertyResources.add(propertyResource);
         }
         if (!propertyResources.isEmpty()) {
@@ -592,6 +627,46 @@ public class ClientUseProcessor extends AbstractProcessor<CtElement> {
             }
         }
         return references;
+    }
+
+    private List<Resource> controlledTermReferences(CtAnnotation<?> annotation, String propertyName,
+            CtExpression<?> value) {
+        if (!"ApiTerm".equals(annotation.getAnnotationType().getSimpleName())
+                || !"term".equals(propertyName) || !(value instanceof CtLiteral<?>)
+                || !(((CtLiteral<?>) value).getValue() instanceof String)) {
+            return List.of();
+        }
+
+        String annotationValue = normalizeControlledTerm((String) ((CtLiteral<?>) value).getValue());
+        String matchedUri = null;
+        int longestMatch = -1;
+        for (Map.Entry<String, String> termAlias : controlledTermAliases.entrySet()) {
+            if (!containsControlledTerm(annotationValue, termAlias.getKey())) {
+                continue;
+            }
+            int matchLength = termAlias.getKey().length();
+            if (matchLength > longestMatch) {
+                matchedUri = termAlias.getValue();
+                longestMatch = matchLength;
+            } else if (matchLength == longestMatch && !termAlias.getValue().equals(matchedUri)) {
+                throw new IllegalStateException("ApiTerm value '" + annotationValue
+                        + "' ambiguously matches multiple controlled terms");
+            }
+        }
+        return matchedUri == null ? List.of() : List.of(constraintModel.createResource(matchedUri));
+    }
+
+    private boolean containsControlledTerm(String value, String alias) {
+        String phrase = java.util.Arrays.stream(alias.split(" "))
+                .map(Pattern::quote)
+                .collect(java.util.stream.Collectors.joining("\\s+"));
+        Pattern pattern = Pattern.compile("(?iu)(?<![\\p{L}\\p{N}_])" + phrase
+                + "(?![\\p{L}\\p{N}_])");
+        return pattern.matcher(value).find();
+    }
+
+    private String normalizeControlledTerm(String value) {
+        return value.trim().replaceAll("\\s+", " ").toLowerCase(java.util.Locale.ROOT);
     }
 
     private CtExpression<?> annotationPropertyValue(CtAnnotation<?> annotation, String propertyName) {

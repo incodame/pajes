@@ -2,27 +2,41 @@
 @prefix owl:   <http://www.w3.org/2002/07/owl#> .
 @prefix woc:   <http://rdf.webofcode.org/woc/> .
 
-icodm:org.incodame.pajes.apiref
-        a       woc:Package , icodm:JavaSubModule .
-
-icodm:org.incodame.pajes.client.ClientUseToRdf
-        a                 woc:Class , owl:Class;
-        woc:implements    icodm:org.incodame.pajes.outputApi.RdfGenerator;
+icodm:org.incodame.pajes.apiref.SourceJavadocIndex
+        a                 owl:Class , woc:Class;
+        woc:calls         icodm:spoon.reflect.declaration.CtType_getTypeMembers_57d3814abf95_stable , icodm:spoon.reflect.declaration.CtType_getSimpleName_a6e4ac6e3a6e_stable , icodm:spoon.reflect.declaration.CtExecutable_getParameters_088d6f1defd4_stable , icodm:spoon.reflect.declaration.CtTypeInformation_getQualifiedName_81c73cd77541_stable , icodm:spoon.reflect.declaration.CtElement_getDocComment_8f8be7e6f41f_stable , icodm:spoon.reflect.declaration.CtTypedElement_getType_3046d0b2d347_stable , icodm:spoon.reflect.declaration.CtNamedElement_getSimpleName_385132bb36ff_stable;
         icodm:applBranch  "main" .
+
+icodm:org.incodame.pajes.apiref.JavaPatchToRdf
+        a                 owl:Class , woc:Class;
+        woc:calls         icodm:spoon.reflect.declaration.CtModifiable_isProtected_0ee07ecc754a_stable , icodm:spoon.reflect.declaration.CtExecutable_getParameters_088d6f1defd4_stable , icodm:spoon.reflect.declaration.CtType_getSimpleName_a6e4ac6e3a6e_stable , icodm:spoon.reflect.declaration.CtTypeInformation_getQualifiedName_81c73cd77541_stable , icodm:spoon.reflect.declaration.CtExecutable_getThrownTypes_4d7fb98dff30_stable , icodm:spoon.reflect.declaration.CtTypeInformation_isEnum_4504dc13da7d_stable , icodm:spoon.reflect.declaration.CtTypeInformation_isClass_4890620d00ed_stable , icodm:spoon.reflect.declaration.CtConstructor_getSimpleName_aa35e6e1e089_stable , icodm:spoon.reflect.declaration.CtElement_getElements_1355ffd2b004_stable , icodm:spoon.reflect.declaration.CtModifiable_isPublic_2af2044bac78_stable , icodm:spoon.reflect.declaration.CtType_getMethods_1a0e0f3f37bf_stable , icodm:spoon.reflect.declaration.CtTypeMember_getDeclaringType_88077801afc7_stable , icodm:spoon.reflect.declaration.CtNamedElement_getSimpleName_385132bb36ff_stable , icodm:spoon.reflect.declaration.CtTypedElement_getType_3046d0b2d347_stable , icodm:spoon.reflect.declaration.CtTypeInformation_isInterface_5ca3288fbc54_stable , icodm:spoon.reflect.declaration.CtModifiable_isPrivate_ae5d03d50483_stable , icodm:spoon.reflect.declaration.CtTypeInformation_getSuperclass_4caf4927705b_stable , icodm:spoon.reflect.declaration.CtTypeInformation_getSuperInterfaces_5272029810f0_stable;
+        icodm:applBranch  "main" .
+
+icodm:org.incodame.pajes.apiref
+        a                    woc:Package , icodm:JavaSubModule;
+        icodm:hasDependency  icodm:org.incodame.pajes_dependency_1ddd85665fe7 .
 
 icodm:org.incodame.pajes
         a                   icodm:JavaModule;
         icodm:hasSubModule  icodm:org.incodame.pajes.outputApi , icodm:org.incodame.pajes.client , icodm:org.incodame.pajes.apiref .
 
+icodm:spoon.reflect.declaration
+        a       woc:Package , icodm:JavaLibrary .
+
 icodm:org.incodame.pajes.client
         a                    woc:Package , icodm:JavaSubModule;
-        icodm:hasDependency  icodm:org.incodame.pajes_dependency_e9271d019932 .
+        icodm:hasDependency  icodm:org.incodame.pajes_dependency_1ddd85665fe7 .
 
-icodm:org.incodame.pajes_dependency_e9271d019932
+icodm:org.incodame.pajes_dependency_1ddd85665fe7
         a                    icodm:LibraryDependency;
         icodm:applBranch     "main";
-        icodm:targetPackage  icodm:org.incodame.pajes.outputApi;
-        icodm:targetVersion  "0.0.1-SNAPSHOT" .
+        icodm:targetPackage  icodm:spoon.reflect.declaration;
+        icodm:targetVersion  "10.4.0" .
+
+icodm:org.incodame.pajes.client.ClientUseProcessor
+        a                 owl:Class , woc:Class;
+        woc:calls         icodm:spoon.reflect.declaration.CtElement_toString_a6a48f489ecc_stable , icodm:spoon.reflect.declaration.CtTypeMember_getDeclaringType_88077801afc7_stable , icodm:spoon.reflect.declaration.CtType_getPackage_54fa8182ec59_stable , icodm:spoon.reflect.declaration.CtTypeInformation_getSuperInterfaces_5272029810f0_stable , icodm:spoon.reflect.declaration.CtElement_getParent_ff2950b4e13a_stable , icodm:spoon.reflect.declaration.CtPackage_getQualifiedName_7794bc449afc_stable , icodm:spoon.reflect.declaration.CtExecutable_getReference_82a171108deb_stable , icodm:spoon.reflect.declaration.CtAnnotation_getValues_d763be7103f5_stable , icodm:spoon.reflect.declaration.CtElement_getPosition_9c0f45a6c2b3_stable , icodm:spoon.reflect.declaration.CtTypeInformation_getQualifiedName_81c73cd77541_stable , icodm:spoon.reflect.declaration.CtMethod_getTopDefinitions_5e6f5049e864_stable , icodm:spoon.reflect.declaration.CtType_getMethodsByName_fbea2dd5d16a_stable , icodm:spoon.reflect.declaration.CtAnnotationMethod_getDefaultExpression_e97f03c41e35_stable , icodm:spoon.reflect.declaration.CtElement_getAnnotations_6745a45484f2_stable , icodm:spoon.reflect.declaration.CtTypeInformation_getSuperclass_4caf4927705b_stable , icodm:spoon.reflect.declaration.CtTypedElement_getType_3046d0b2d347_stable , icodm:spoon.reflect.declaration.CtAnnotation_getAnnotationType_e74bc0c0dd56_stable , icodm:spoon.reflect.declaration.CtExecutable_getParameters_088d6f1defd4_stable , icodm:spoon.reflect.declaration.CtNamedElement_getSimpleName_385132bb36ff_stable , icodm:spoon.reflect.declaration.CtElement_getElements_1355ffd2b004_stable;
+        icodm:applBranch  "main" .
 
 icodm:org.incodame.pajes.outputApi
-        a       icodm:JavaLibrary , woc:Package , icodm:JavaSubModule .
+        a       woc:Package , icodm:JavaSubModule .
