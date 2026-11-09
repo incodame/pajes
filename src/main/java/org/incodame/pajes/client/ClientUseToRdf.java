@@ -157,7 +157,8 @@ public class ClientUseToRdf implements RDFWriterI, RdfGenerator {
 
         ClientUseProcessor rdfProcessor = new ClientUseProcessor(targetPackage, branch,
                 clientUseConfiguration.clientAnnotations(), clientUseConfiguration.semanticProperties(),
-                clientUseConfiguration.semanticPrefixes(), clientUseConfiguration.semanticTerms());
+                clientUseConfiguration.semanticPrefixes(), clientUseConfiguration.semanticTerms(),
+                clientUseConfiguration.controlledTermAliases());
         launcher.addProcessor(rdfProcessor);
         
         // Exécution de l'analyse Spoon
@@ -197,6 +198,12 @@ public class ClientUseToRdf implements RDFWriterI, RdfGenerator {
         }
         reportProgress(log, "RDF constraints report generated: client-use-constraints.ttl ("
                 + getModelSize(rdfProcessor.getConstraintModel()) + " triples)");
+
+        try (FileWriter out = new FileWriter("client-use-terms.ttl")) {
+            writeModel(out, clientUseConfiguration.controlledTermsModel(), "TURTLE");
+        }
+        reportProgress(log, "Controlled terms report generated: client-use-terms.ttl ("
+                + getModelSize(clientUseConfiguration.controlledTermsModel()) + " triples)");
 
     }
 
@@ -238,7 +245,8 @@ public class ClientUseToRdf implements RDFWriterI, RdfGenerator {
 
     static ClientUseConfiguration resolveClientUseConfiguration(Path configurationFile) throws IOException {
         if (!Files.exists(configurationFile)) {
-            return new ClientUseConfiguration(Map.of(), Map.of(), Map.of(), Map.of());
+            return new ClientUseConfiguration(Map.of(), Map.of(), Map.of(), Map.of(),
+                    Map.of(), createControlledTermsModel());
         }
         JsonNode configuration = new ObjectMapper(new YAMLFactory()).readTree(configurationFile.toFile());
         JsonNode annotations = configuration == null ? null : configuration.get("client-annotations");
@@ -308,11 +316,247 @@ public class ClientUseToRdf implements RDFWriterI, RdfGenerator {
                         + " must use a configured prefix in " + configurationFile);
             }
         }
+        ControlledTermsConfiguration controlledTerms = readControlledTerms(
+                configuration == null ? null : configuration.get("controlled-terms"), configurationFile);
         return new ClientUseConfiguration(
                 Collections.unmodifiableMap(result),
                 Collections.unmodifiableMap(semanticProperties),
                 Collections.unmodifiableMap(semanticPrefixes),
-                Collections.unmodifiableMap(semanticTerms));
+                Collections.unmodifiableMap(semanticTerms),
+                controlledTerms.aliases(),
+                controlledTerms.model());
+    }
+
+    private static ControlledTermsConfiguration readControlledTerms(JsonNode node, Path configurationFile)
+            throws IOException {
+        Model model = createControlledTermsModel();
+        if (node == null || node.isNull()) {
+            return new ControlledTermsConfiguration(Map.of(), model);
+        }
+        if (!node.isObject()) {
+            throw new IOException("controlled-terms must be a YAML mapping in " + configurationFile);
+        }
+
+        Map<String, ControlledTermDefinition> definitions = new LinkedHashMap<>();
+        Map<String, String> localNames = new LinkedHashMap<>();
+        Iterator<Map.Entry<String, JsonNode>> fields = node.fields();
+        while (fields.hasNext()) {
+            Map.Entry<String, JsonNode> entry = fields.next();
+            String label = entry.getKey().trim();
+            JsonNode definition = entry.getValue();
+            if (label.isEmpty() || !definition.isObject()) {
+                throw new IOException("Each controlled term must have a non-empty label and a mapping in "
+                        + configurationFile);
+            }
+            JsonNode configuredComment = definition.get("comment");
+            if (configuredComment != null && !configuredComment.isNull()
+                    && (!configuredComment.isTextual() || configuredComment.asText().trim().isEmpty())) {
+                throw new IOException("controlled-terms comments must be non-empty strings in "
+                        + configurationFile + " (term " + label + ")");
+            }
+            String comment = configuredComment == null || configuredComment.isNull()
+                    ? null : configuredComment.asText().trim();
+            List<String> alternatives = readControlledTermList(
+                    definition.get("alternatives"), "alternatives", label, configurationFile);
+            List<String> machineReads = readControlledTermList(
+                    definition.get("machine-reads"), "machine-reads", label, configurationFile);
+            List<String> subclasses = readControlledTermList(
+                    definition.get("subclasses"), "subclasses", label, configurationFile);
+            String localName = controlledTermLocalName(label);
+            String previousLabel = localNames.putIfAbsent(localName, label);
+            if (previousLabel != null) {
+                throw new IOException("Controlled terms '" + previousLabel + "' and '" + label
+                        + "' produce the same ICODM resource name in " + configurationFile);
+            }
+            definitions.put(label, new ControlledTermDefinition(
+                    label, comment, alternatives, machineReads, subclasses, localName));
+        }
+
+        Map<String, String> parents = new LinkedHashMap<>();
+        for (ControlledTermDefinition parent : definitions.values()) {
+            for (String childLabel : parent.subclasses()) {
+                if (!definitions.containsKey(childLabel)) {
+                    throw new IOException("Unknown controlled-term subclass '" + childLabel + "' in "
+                            + configurationFile + " (parent " + parent.label() + ")");
+                }
+                String previousParent = parents.putIfAbsent(childLabel, parent.label());
+                if (previousParent != null && !previousParent.equals(parent.label())) {
+                    throw new IOException("Controlled term '" + childLabel + "' has multiple parents in "
+                            + configurationFile);
+                }
+            }
+        }
+        validateControlledTermHierarchy(definitions, parents, configurationFile);
+
+        Map<String, String> aliases = new LinkedHashMap<>();
+        for (ControlledTermDefinition definition : definitions.values()) {
+            String termUri = "https://github.com/Incodam/" + definition.localName();
+            addControlledTermAlias(aliases, definition.label(), termUri, configurationFile);
+            for (String alternative : definition.alternatives()) {
+                addControlledTermAlias(aliases, alternative, termUri, configurationFile);
+            }
+            for (String machineRead : definition.machineReads()) {
+                addControlledTermAlias(aliases, machineRead, termUri, configurationFile);
+            }
+
+            org.apache.jena.rdf.model.Resource term = model.createResource(termUri)
+                    .addProperty(org.apache.jena.vocabulary.RDF.type,
+                            model.createResource("http://www.w3.org/2002/07/owl#Class"));
+            String parentLabel = parents.get(definition.label());
+            term.addProperty(model.createProperty("http://www.w3.org/2000/01/rdf-schema#subClassOf"),
+                    parentLabel == null
+                            ? model.createResource("https://github.com/Incodam/ControlledTerm")
+                            : model.createResource("https://github.com/Incodam/"
+                                    + definitions.get(parentLabel).localName()));
+            term.addProperty(model.createProperty("http://www.w3.org/2000/01/rdf-schema#label"),
+                    model.createLiteral(definition.label(), "en"));
+            if (definition.comment() != null) {
+                term.addProperty(model.createProperty("http://www.w3.org/2000/01/rdf-schema#comment"),
+                        model.createLiteral(definition.comment(), "en"));
+            }
+            for (String alternative : definition.alternatives()) {
+                term.addProperty(model.createProperty("http://www.w3.org/2004/02/skos/core#altLabel"),
+                        model.createLiteral(alternative, "en"));
+            }
+            for (String machineRead : definition.machineReads()) {
+                term.addProperty(model.createProperty("http://www.w3.org/2004/02/skos/core#altLabel"),
+                        model.createLiteral(machineRead));
+            }
+        }
+        return new ControlledTermsConfiguration(
+                Collections.unmodifiableMap(aliases), model);
+    }
+
+    private static Model createControlledTermsModel() {
+        Model model = ModelFactory.createDefaultModel();
+        model.setNsPrefix("icodm", "https://github.com/Incodam/");
+        model.setNsPrefix("rdf", "http://www.w3.org/1999/02/22-rdf-syntax-ns#");
+        model.setNsPrefix("rdfs", "http://www.w3.org/2000/01/rdf-schema#");
+        model.setNsPrefix("owl", "http://www.w3.org/2002/07/owl#");
+        model.setNsPrefix("skos", "http://www.w3.org/2004/02/skos/core#");
+        return model;
+    }
+
+    private static List<String> readControlledTermList(JsonNode node, String property, String term,
+            Path configurationFile) throws IOException {
+        if (node == null || node.isNull()) {
+            return List.of();
+        }
+        if (!node.isArray()) {
+            throw new IOException("controlled-terms." + property + " must be a YAML list in "
+                    + configurationFile + " (term " + term + ")");
+        }
+        List<String> values = new ArrayList<>();
+        for (JsonNode value : node) {
+            if (!value.isTextual() || value.asText().trim().isEmpty()) {
+                throw new IOException("controlled-terms." + property + " values must be non-empty strings in "
+                        + configurationFile + " (term " + term + ")");
+            }
+            values.add(value.asText().trim());
+        }
+        return List.copyOf(new LinkedHashSet<>(values));
+    }
+
+    private static void validateControlledTermHierarchy(Map<String, ControlledTermDefinition> definitions,
+            Map<String, String> parents, Path configurationFile) throws IOException {
+        for (String label : definitions.keySet()) {
+            Set<String> ancestors = new LinkedHashSet<>();
+            String current = label;
+            while ((current = parents.get(current)) != null) {
+                if (!ancestors.add(current)) {
+                    throw new IOException("Cycle in controlled-term subclasses in " + configurationFile
+                            + " involving " + label);
+                }
+            }
+        }
+    }
+
+    private static void addControlledTermAlias(Map<String, String> aliases, String alias, String termUri,
+            Path configurationFile) throws IOException {
+        String normalizedAlias = normalizeControlledTerm(alias);
+        String previousUri = aliases.putIfAbsent(normalizedAlias, termUri);
+        if (previousUri != null && !previousUri.equals(termUri)) {
+            throw new IOException("Controlled-term label '" + alias + "' is assigned to multiple terms in "
+                    + configurationFile);
+        }
+    }
+
+    private static String normalizeControlledTerm(String value) {
+        return value.trim().replaceAll("\\s+", " ").toLowerCase(java.util.Locale.ROOT);
+    }
+
+    private static String controlledTermLocalName(String label) throws IOException {
+        StringBuilder localName = new StringBuilder();
+        for (String part : label.split("[^\\p{L}\\p{N}]+")) {
+            if (!part.isEmpty()) {
+                localName.append(Character.toUpperCase(part.charAt(0))).append(part.substring(1));
+            }
+        }
+        if (localName.length() == 0) {
+            throw new IOException("Controlled term label must contain letters or digits: " + label);
+        }
+        return localName.toString();
+    }
+
+    private static final class ControlledTermDefinition {
+        private final String label;
+        private final String comment;
+        private final List<String> alternatives;
+        private final List<String> machineReads;
+        private final List<String> subclasses;
+        private final String localName;
+
+        ControlledTermDefinition(String label, String comment, List<String> alternatives,
+                List<String> machineReads, List<String> subclasses, String localName) {
+            this.label = label;
+            this.comment = comment;
+            this.alternatives = alternatives;
+            this.machineReads = machineReads;
+            this.subclasses = subclasses;
+            this.localName = localName;
+        }
+
+        String label() {
+            return label;
+        }
+
+        String comment() {
+            return comment;
+        }
+
+        List<String> alternatives() {
+            return alternatives;
+        }
+
+        List<String> machineReads() {
+            return machineReads;
+        }
+
+        List<String> subclasses() {
+            return subclasses;
+        }
+
+        String localName() {
+            return localName;
+        }
+    }
+
+    private static final class ControlledTermsConfiguration {
+        private final Map<String, String> aliases;
+        private final Model model;
+
+        ControlledTermsConfiguration(Map<String, String> aliases, Model model) {
+            this.aliases = aliases;
+            this.model = model;
+        }
+
+        Map<String, String> aliases() {
+            return aliases;
+        }
+
+        Model model() {
+            return model;
+        }
     }
 
     private static Map<String, String> readStringMap(JsonNode node, String path, Path configurationFile)
@@ -342,14 +586,19 @@ public class ClientUseToRdf implements RDFWriterI, RdfGenerator {
         private final Map<String, Set<String>> semanticProperties;
         private final Map<String, String> semanticPrefixes;
         private final Map<String, String> semanticTerms;
+        private final Map<String, String> controlledTermAliases;
+        private final Model controlledTermsModel;
 
         ClientUseConfiguration(Map<String, List<String>> clientAnnotations,
                 Map<String, Set<String>> semanticProperties, Map<String, String> semanticPrefixes,
-                Map<String, String> semanticTerms) {
+                Map<String, String> semanticTerms, Map<String, String> controlledTermAliases,
+                Model controlledTermsModel) {
             this.clientAnnotations = clientAnnotations;
             this.semanticProperties = semanticProperties;
             this.semanticPrefixes = semanticPrefixes;
             this.semanticTerms = semanticTerms;
+            this.controlledTermAliases = controlledTermAliases;
+            this.controlledTermsModel = controlledTermsModel;
         }
 
         Map<String, List<String>> clientAnnotations() {
@@ -366,6 +615,14 @@ public class ClientUseToRdf implements RDFWriterI, RdfGenerator {
 
         Map<String, String> semanticTerms() {
             return semanticTerms;
+        }
+
+        Map<String, String> controlledTermAliases() {
+            return controlledTermAliases;
+        }
+
+        Model controlledTermsModel() {
+            return controlledTermsModel;
         }
     }
 
