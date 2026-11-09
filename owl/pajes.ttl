@@ -230,6 +230,20 @@ woc:hasReturnType
     rdfs:domain woc:Method ;
     rdfs:range owl:Class .
 
+# Java conventions not covered in webofcode ontology
+
+icodm:providesGetter a owl:ObjectProperty ;
+    rdfs:label "java class has getter named"@en ;
+    rdfs:comment "Links a java component with a java bean property name"@en ;
+    rdfs:domain woc:Class ;
+    rdfs:range xsd:string .
+
+icodm:providesSetter a owl:ObjectProperty ;
+    rdfs:label "java class has setter named"@en ;
+    rdfs:comment "Links a java component with a java bean property name"@en ;
+    rdfs:domain woc:Class ;
+    rdfs:range xsd:string .
+
 # Controlled Term Framework object properties
 
 icodm:refersToTerm a owl:ObjectProperty ;
