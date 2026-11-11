@@ -8,30 +8,29 @@
 
 # controlled terms configured in pajes-config.yaml - should be present in client-use-terms.ttl
 
-icodm:Class a owl:Class ;
-        rdfs:subClassOf icodm:ControlledTerm ;
-        rdfs:label "class"@en ;
-        rdfs:comment "a java class."@en ;
+icodm:Class rdf:type icodm:ControlledTerm ;
+        skos:prefLabel "class"@en ;
+        skos:definition "a java class."@en ;
         # Aggregating human-readable synonyms
         skos:altLabel "java class"@en , "java component"@en ;
         # Aggregating code-level / machine-readable synonyms
         skos:altLabel "Class" , "CtClass" , "CtType" .
 
-icodm:AbstractClass a owl:Class ;
-        rdfs:subClassOf icodm:Class ;
-        rdfs:label "abstract class"@en ;
-        rdfs:comment "an abstract java class"@en .
+icodm:AbstractClass rdf:type icodm:ControlledTerm ;
+        skos:broader icodm:Class ;
+        skos:prefLabel "abstract class"@en ;
+        skos:definition "an abstract java class"@en .
 
-icodm:InnerClass a owl:Class ;
-        rdfs:subClassOf icodm:Class ;
-        rdfs:label "inner class"@en ;
-        rdfs:comment "a java class defined inside another class"@en ;
+icodm:InnerClass rdf:type icodm:ControlledTerm ;
+        skos:broader icodm:Class ;
+        skos:prefLabel "inner class"@en ;
+        skos:definition "a java class defined inside another class"@en ;
         skos:altLabel "nested class" .
 
-icodm:AnonymousInnerClass a owl:Class ;
-        rdfs:subClassOf icodm:InnerClass ;
-        rdfs:label "anonymous inner class"@en ;
-        rdfs:comment "a java class defined by an interface and created dynamically inside another class"@en .
+icodm:AnonymousInnerClass rdf:type icodm:ControlledTerm ;
+        skos:broader icodm:InnerClass ;
+        skos:prefLabel "anonymous inner class"@en ;
+        skos:definition "a java class defined by an interface and created dynamically inside another class"@en .
 
 # ClientUseProcessor has constraints on method recordTargetClientPackage (its ApiTerm annotation refers to controlled term "class")
 

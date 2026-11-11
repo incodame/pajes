@@ -1,28 +1,25 @@
 @prefix icodm: <https://github.com/Incodam/> .
-@prefix owl:   <http://www.w3.org/2002/07/owl#> .
 @prefix rdf:   <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
-@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
 @prefix skos:  <http://www.w3.org/2004/02/skos/core#> .
 
-icodm:AbstractClass  rdf:type  owl:Class;
-        rdfs:comment     "an abstract java class"@en;
-        rdfs:label       "abstract class"@en;
-        rdfs:subClassOf  icodm:Class .
+icodm:AbstractClass  rdf:type  icodm:ControlledTerm;
+        skos:broader     icodm:Class;
+        skos:definition  "an abstract java class"@en;
+        skos:prefLabel   "abstract class"@en .
 
-icodm:Class  rdf:type    owl:Class;
-        rdfs:comment     "a java class"@en;
-        rdfs:label       "class"@en;
-        rdfs:subClassOf  icodm:ControlledTerm;
-        skos:altLabel    "CtClass" , "type"@en , "java type"@en , "java class"@en , "java component"@en , "return type"@en , "Class" , "CtType" .
+icodm:Class  rdf:type    icodm:ControlledTerm;
+        skos:altLabel    "CtClass" , "type"@en , "java type"@en , "java class"@en , "java component"@en , "return type"@en , "Class" , "CtType";
+        skos:definition  "a java class"@en;
+        skos:prefLabel   "class"@en .
 
-icodm:InnerClass  rdf:type  owl:Class;
-        rdfs:comment     "a java class defined inside another class"@en;
-        rdfs:label       "inner class"@en;
-        rdfs:subClassOf  icodm:Class;
-        skos:altLabel    "nested class"@en .
+icodm:InnerClass  rdf:type  icodm:ControlledTerm;
+        skos:altLabel    "nested class"@en;
+        skos:broader     icodm:Class;
+        skos:definition  "a java class defined inside another class"@en;
+        skos:prefLabel   "inner class"@en .
 
 icodm:AnonymousInnerClass
-        rdf:type         owl:Class;
-        rdfs:comment     "a java class defined by an interface and created dynamically inside another class"@en;
-        rdfs:label       "anonymous inner class"@en;
-        rdfs:subClassOf  icodm:InnerClass .
+        rdf:type         icodm:ControlledTerm;
+        skos:broader     icodm:InnerClass;
+        skos:definition  "a java class defined by an interface and created dynamically inside another class"@en;
+        skos:prefLabel   "anonymous inner class"@en .

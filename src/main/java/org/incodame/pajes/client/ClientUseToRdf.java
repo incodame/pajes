@@ -401,17 +401,17 @@ public class ClientUseToRdf implements RDFWriterI, RdfGenerator {
 
             org.apache.jena.rdf.model.Resource term = model.createResource(termUri)
                     .addProperty(org.apache.jena.vocabulary.RDF.type,
-                            model.createResource("http://www.w3.org/2002/07/owl#Class"));
+                            model.createResource("https://github.com/Incodam/ControlledTerm"));
             String parentLabel = parents.get(definition.label());
-            term.addProperty(model.createProperty("http://www.w3.org/2000/01/rdf-schema#subClassOf"),
-                    parentLabel == null
-                            ? model.createResource("https://github.com/Incodam/ControlledTerm")
-                            : model.createResource("https://github.com/Incodam/"
-                                    + definitions.get(parentLabel).localName()));
-            term.addProperty(model.createProperty("http://www.w3.org/2000/01/rdf-schema#label"),
+            if (parentLabel != null) {
+                term.addProperty(model.createProperty("http://www.w3.org/2004/02/skos/core#broader"),
+                        model.createResource("https://github.com/Incodam/"
+                                + definitions.get(parentLabel).localName()));
+            }
+            term.addProperty(model.createProperty("http://www.w3.org/2004/02/skos/core#prefLabel"),
                     model.createLiteral(definition.label(), "en"));
             if (definition.comment() != null) {
-                term.addProperty(model.createProperty("http://www.w3.org/2000/01/rdf-schema#comment"),
+                term.addProperty(model.createProperty("http://www.w3.org/2004/02/skos/core#definition"),
                         model.createLiteral(definition.comment(), "en"));
             }
             for (String alternative : definition.alternatives()) {
@@ -431,8 +431,6 @@ public class ClientUseToRdf implements RDFWriterI, RdfGenerator {
         Model model = ModelFactory.createDefaultModel();
         model.setNsPrefix("icodm", "https://github.com/Incodam/");
         model.setNsPrefix("rdf", "http://www.w3.org/1999/02/22-rdf-syntax-ns#");
-        model.setNsPrefix("rdfs", "http://www.w3.org/2000/01/rdf-schema#");
-        model.setNsPrefix("owl", "http://www.w3.org/2002/07/owl#");
         model.setNsPrefix("skos", "http://www.w3.org/2004/02/skos/core#");
         return model;
     }
