@@ -357,15 +357,23 @@ class ClientUseCompilerTest {
                                 terms.getResource("https://github.com/Incodam/Class");
                 org.apache.jena.rdf.model.Resource innerClassTerm =
                                 terms.getResource("https://github.com/Incodam/InnerClass");
-                assertTrue(classTerm.hasProperty(RDF.type, terms.createResource(
-                                "http://www.w3.org/2002/07/owl#Class")));
+                org.apache.jena.rdf.model.Resource controlledTerm =
+                                terms.createResource("https://github.com/Incodam/ControlledTerm");
+                assertTrue(classTerm.hasProperty(RDF.type, controlledTerm));
                 assertTrue(innerClassTerm.hasProperty(
-                                terms.createProperty("http://www.w3.org/2000/01/rdf-schema#subClassOf"),
+                                terms.createProperty("http://www.w3.org/2004/02/skos/core#broader"),
                                 classTerm));
                 assertTrue(classTerm.hasProperty(
                                 terms.createProperty("http://www.w3.org/2004/02/skos/core#altLabel")));
-                assertEquals(2, terms.listResourcesWithProperty(RDF.type,
-                                terms.createResource("http://www.w3.org/2002/07/owl#Class")).toList().size());
+                assertEquals(2, terms.listResourcesWithProperty(RDF.type, controlledTerm).toList().size());
+                assertTrue(classTerm.hasProperty(
+                                terms.createProperty("http://www.w3.org/2004/02/skos/core#prefLabel")));
+                assertTrue(classTerm.hasProperty(
+                                terms.createProperty("http://www.w3.org/2004/02/skos/core#definition")));
+                assertTrue(terms.listStatements().toList().stream()
+                                .map(statement -> statement.getPredicate().getURI())
+                                .allMatch(predicate -> RDF.type.getURI().equals(predicate)
+                                                || predicate.startsWith("http://www.w3.org/2004/02/skos/core#")));
         }
 
         @Test
@@ -380,7 +388,7 @@ class ClientUseCompilerTest {
                                 configuration.controlledTermsModel().getResource(
                                                 "https://github.com/Incodam/AnonymousInnerClass"),
                                 configuration.controlledTermsModel().createProperty(
-                                                "http://www.w3.org/2000/01/rdf-schema#subClassOf"),
+                                                "http://www.w3.org/2004/02/skos/core#broader"),
                                 configuration.controlledTermsModel().getResource(
                                                 "https://github.com/Incodam/InnerClass")));
         }
