@@ -5,6 +5,7 @@ import org.apache.jena.rdf.model.RDFList;
 import org.apache.jena.rdf.model.Resource;
 import org.apache.jena.vocabulary.RDF;
 import org.incodame.pajes.apiref.JavaPatchToRdf;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Files;
@@ -230,6 +231,7 @@ class JavaPatchToRdfTest {
     }
 
     @Test
+    @Disabled("Requires external source and patch files under /Users/tanguyro/Incodame")
     void onlyAddsIsPatchOfMethodForPatchedMethods() throws Exception {
         String sourcePath = "/Users/tanguyro/Incodame/paragraph/ParagraphUI/src/main/java/org/incodame/paragraph/sample/webapp/demo/Parameter.java";
         String patchPath = "/Users/tanguyro/Incodame/paragraph/set-doc-since-information.patch";
@@ -250,6 +252,7 @@ class JavaPatchToRdfTest {
     }
 
     @Test
+    @Disabled("Requires external source and patch files under /Users/tanguyro/Incodame")
     void onlyAddsIsNewConstructorForAddedConstructors() throws Exception {
         String sourcePath = "/Users/tanguyro/Incodame/paragraph/ParagraphUI/src/main/java/org/incodame/paragraph/sample/webapp/demo/Parameter.java";
         String patchPath = "/Users/tanguyro/Incodame/paragraph/add-parameter-name-constructor.patch";

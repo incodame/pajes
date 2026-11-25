@@ -8,6 +8,8 @@
 
 <https://github.com/Incodam/pajes/ontology>
     a owl:Ontology ;
+    owl:imports <http://rdf.webofcode.org/woc/> ,
+        <http://www.w3.org/2004/02/skos/core> ;
     rdfs:label "Pajes ontology"@en ;
     rdfs:comment "OWL 2 vocabulary for Pajes Java module, library dependency, API, patch, and client-use RDF data."@en ;
     owl:versionInfo "1.0" .
